@@ -35,7 +35,7 @@ async function sendCollaboratorInviteEmail(
   accessToken: string,
   publicShareUrl?: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const appUrl = window.location.origin;
+  const appUrl = 'https://grc-ux-lab.netlify.app';
   const roleLabel = role === 'editor' ? 'Editor' : 'Viewer';
   const roleDesc =
     role === 'editor'
@@ -352,7 +352,7 @@ export default function ShareModal({ sessionId, sessionName, onClose }: ShareMod
       const publicShareUrl = shareToken ? buildShareUrl(shareToken.token) : undefined;
       const emailResult = await sendCollaboratorInviteEmail(email, inviterEmail, sessionName, inviteRole, accessToken, publicShareUrl);
       if (!emailResult.ok) {
-        setEmailSendWarning(`Collaborator added, but the invitation email could not be delivered. You can ask them to sign in at ${window.location.origin}/login.`);
+        setEmailSendWarning(`Collaborator added, but the invitation email could not be delivered. You can ask them to sign in at https://grc-ux-lab.netlify.app/login.`);
       } else {
         setEmailSendSuccess(`Collaborator added and invitation email sent to ${email}.`);
         setTimeout(() => setEmailSendSuccess(null), 5000);
