@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Loader2, Star, AlertCircle } from 'lucide-react';
 import { fetchSurveyByShareToken, fetchSurveyQuestions, submitSurveyResponse } from '../lib/data';
 import type { Survey, SurveyQuestion } from '../lib/types';
@@ -272,23 +272,8 @@ function QuestionStep({
   submitError: string | null;
   validationError: string | null;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Enter') return;
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'TEXTAREA') return;
-      e.preventDefault();
-      onNext();
-    }
-    const el = containerRef.current;
-    if (el) el.addEventListener('keydown', handleKeyDown);
-    return () => { if (el) el.removeEventListener('keydown', handleKeyDown); };
-  }, [onNext]);
-
   return (
-    <div className="max-w-lg w-full" ref={containerRef} tabIndex={-1}>
+    <div className="max-w-lg w-full">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-xs font-semibold text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full">
           {index + 1} / {total}
@@ -326,37 +311,41 @@ function QuestionStep({
 
       {submitError && <p className="text-red-500 text-sm mb-4">{submitError}</p>}
 
-      <div className="flex items-center justify-end gap-2">
-        {!isFirst && (
-          <button
-            onClick={onBack}
-            className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center gap-1.5"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back
-          </button>
-        )}
-        {!question.required && (
+      <div className="flex items-center justify-between">
+        <div>
+          {!isFirst && (
+            <button
+              onClick={onBack}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!question.required && (
+            <button
+              onClick={onNext}
+              className="text-sm text-slate-400 hover:text-slate-600 transition-colors px-2"
+            >
+              Skip
+            </button>
+          )}
           <button
             onClick={onNext}
-            className="text-sm text-slate-400 hover:text-slate-600 transition-colors px-2"
+            disabled={submitting}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg transition-all text-sm shadow-sm"
           >
-            Skip
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isLast ? (
+              <><Check className="w-3.5 h-3.5" /> Submit</>
+            ) : (
+              <>Next <ArrowRight className="w-3.5 h-3.5" /></>
+            )}
           </button>
-        )}
-        <button
-          onClick={onNext}
-          disabled={submitting}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg transition-all text-sm shadow-sm"
-        >
-          {submitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : isLast ? (
-            <><Check className="w-3.5 h-3.5" /> Submit</>
-          ) : (
-            <>Next <ArrowRight className="w-3.5 h-3.5" /></>
-          )}
-        </button>
+        </div>
       </div>
     </div>
   );
