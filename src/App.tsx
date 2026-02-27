@@ -84,6 +84,7 @@ function AppContent() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 1024);
   const [shareToken, setShareToken] = useState<string | null>(() => getPathTokens().shareToken);
   const [surveyToken, setSurveyToken] = useState<string | null>(() => getPathTokens().surveyToken);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -94,6 +95,18 @@ function AppContent() {
     if (pending) {
       setOauthPending(pending);
     }
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth < 1024) {
+        setSidebarCollapsed(true);
+      } else {
+        setSidebarCollapsed(false);
+      }
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -194,17 +207,19 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-900 overflow-hidden">
       <Sidebar
         currentView={sidebarView}
         onNavigate={handleNavigate}
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 rounded-tl-2xl">
         {appView !== 'survey-builder' && (
-          <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 shrink-0">
+          <header className="bg-slate-50 px-6 py-4 flex items-center gap-4 shrink-0 border-b border-slate-200/80 rounded-tl-2xl">
             <MobileMenuButton onClick={() => setMobileSidebarOpen(true)} />
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-semibold text-slate-900">{pageTitle[appView]}</h2>
