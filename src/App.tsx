@@ -217,9 +217,9 @@ function AppContent() {
         onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 rounded-tl-2xl">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 rounded-2xl my-2 mr-2">
         {appView !== 'survey-builder' && (
-          <header className="bg-slate-50 px-6 py-4 flex items-center gap-4 shrink-0 border-b border-slate-200/80 rounded-tl-2xl">
+          <header className="bg-slate-50 px-6 py-4 flex items-center gap-4 shrink-0 border-b border-slate-200/80 rounded-t-2xl">
             <MobileMenuButton onClick={() => setMobileSidebarOpen(true)} />
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-semibold text-slate-900">{pageTitle[appView]}</h2>
