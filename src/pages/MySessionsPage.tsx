@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Plus, ListChecks, Loader2, ClipboardList, Users } from 'lucide-react';
+import { ListChecks, Loader2, ClipboardList, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchSessions, fetchTasksBySession, archiveSession, deleteSession, fetchSharedWithMeSessions } from '../lib/data';
 import type { SessionWithStats } from '../lib/data';
 import type { Session, Task, SessionType } from '../lib/types';
 import SessionCard from '../components/SessionCard';
 import CreateSessionModal from '../components/CreateSessionModal';
+import CreateCwgSessionModal from '../components/CreateCwgSessionModal';
 import NewSessionMenu from '../components/NewSessionMenu';
 import ComingSoonModal from '../components/ComingSoonModal';
 
@@ -22,6 +23,7 @@ export default function MySessionsPage({ onViewSession, refreshKey }: MySessions
   const [sharedSessions, setSharedSessions] = useState<SessionWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCwgModal, setShowCwgModal] = useState(false);
   const [selectedSessionType, setSelectedSessionType] = useState<SessionType>('usability_test');
   const [comingSoonType, setComingSoonType] = useState<SessionType | null>(null);
   const [activeTab, setActiveTab] = useState<SessionsTab>('mine');
@@ -75,6 +77,8 @@ export default function MySessionsPage({ onViewSession, refreshKey }: MySessions
     if (type === 'usability_test') {
       setSelectedSessionType(type);
       setShowModal(true);
+    } else if (type === 'client_working_group') {
+      setShowCwgModal(true);
     } else {
       setComingSoonType(type);
     }
@@ -199,6 +203,15 @@ export default function MySessionsPage({ onViewSession, refreshKey }: MySessions
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
           sessionType={selectedSessionType}
+        />
+      )}
+      {showCwgModal && (
+        <CreateCwgSessionModal
+          onClose={() => setShowCwgModal(false)}
+          onCreated={() => {
+            setShowCwgModal(false);
+            loadSessions();
+          }}
         />
       )}
       {comingSoonType && (

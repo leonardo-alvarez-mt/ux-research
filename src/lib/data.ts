@@ -17,6 +17,7 @@ import type {
   SurveyResponse,
   SurveyResponseAnswer,
   SurveyGoogleSheetsConnection,
+  CwgSessionMeta,
 } from './types';
 
 export async function fetchSessions(userId: string, archived = false): Promise<Session[]> {
@@ -801,4 +802,200 @@ export async function updateSurveyGoogleSheetsLastSynced(
     .update({ last_synced_at: new Date().toISOString() })
     .eq('id', connectionId);
   if (error) throw error;
+}
+
+// ============================================================
+// CLIENT WORKING GROUP (CWG)
+// ============================================================
+
+export async function createCwgSessionWithTasks(
+  userId: string,
+  name: string,
+  meetingDate: string,
+  description: string,
+  meetingLink: string,
+  timezone: string
+): Promise<Session> {
+  const { data: sessionRows, error: sessionError } = await supabase
+    .from('sessions')
+    .insert({
+      user_id: userId,
+      name,
+      test_date: meetingDate,
+      description,
+      session_type: 'client_working_group',
+    })
+    .select();
+  if (sessionError) throw new Error(sessionError.message || 'Could not create CWG session.');
+  if (!sessionRows || sessionRows.length === 0) throw new Error('CWG session was not created. Please sign out and back in.');
+  const session = sessionRows[0];
+
+  await supabase.from('cwg_session_meta').insert({
+    session_id: session.id,
+    meeting_link: meetingLink || null,
+    timezone: timezone || null,
+  });
+
+  const { data: templates, error: templateError } = await supabase
+    .from('cwg_master_template')
+    .select('*')
+    .order('day_offset', { ascending: true })
+    .order('sort_order', { ascending: true });
+  if (templateError) throw templateError;
+
+  if (templates && templates.length > 0) {
+    const base = new Date(meetingDate + 'T00:00:00');
+    const taskRows = templates.map((t) => {
+      const due = new Date(base);
+      due.setDate(base.getDate() + t.day_offset);
+      return {
+        session_id: session.id,
+        title: t.title,
+        phase: t.phase,
+        due_date: due.toISOString().split('T')[0],
+        is_completed: false,
+        category: t.category,
+        sort_order: t.sort_order,
+        _template_id: t.id,
+      };
+    });
+
+    const { data: insertedTasks, error: tasksError } = await supabase
+      .from('tasks')
+      .insert(taskRows.map(({ _template_id: _tid, ...rest }) => rest))
+      .select();
+    if (tasksError) throw new Error(tasksError.message || 'Failed to create CWG tasks.');
+
+    try {
+      const { data: defaultAttachments } = await supabase
+        .from('cwg_master_template_attachments')
+        .select('*');
+
+      if (defaultAttachments && defaultAttachments.length > 0 && insertedTasks) {
+        const templateIdToTaskId = new Map<number, string>();
+        for (let i = 0; i < taskRows.length; i++) {
+          const inserted = insertedTasks.find(
+            (t) =>
+              t.title === taskRows[i].title &&
+              t.phase === taskRows[i].phase &&
+              t.sort_order === taskRows[i].sort_order
+          );
+          if (inserted) {
+            templateIdToTaskId.set(taskRows[i]._template_id, inserted.id);
+          }
+        }
+
+        const attachmentsToInsert: {
+          task_id: string;
+          label: string;
+          type: string;
+          url: string;
+          file_name: string;
+        }[] = [];
+
+        for (const att of defaultAttachments) {
+          const taskId = templateIdToTaskId.get(att.template_task_id);
+          if (taskId && att.url) {
+            attachmentsToInsert.push({
+              task_id: taskId,
+              label: att.label,
+              type: att.type,
+              url: att.url,
+              file_name: att.file_name,
+            });
+          }
+        }
+
+        if (attachmentsToInsert.length > 0) {
+          await supabase.from('task_attachments').insert(attachmentsToInsert);
+        }
+      }
+    } catch (_attachErr) {
+      // Non-critical
+    }
+  }
+
+  return session;
+}
+
+export async function fetchCwgSessionMeta(sessionId: string): Promise<CwgSessionMeta | null> {
+  const { data, error } = await supabase
+    .from('cwg_session_meta')
+    .select('*')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as CwgSessionMeta | null;
+}
+
+export async function updateCwgSessionMeta(
+  sessionId: string,
+  fields: {
+    meeting_link?: string | null;
+    timezone?: string | null;
+    recording_link?: string | null;
+    recording_passcode?: string | null;
+  }
+): Promise<void> {
+  const { error } = await supabase
+    .from('cwg_session_meta')
+    .update(fields)
+    .eq('session_id', sessionId);
+  if (error) throw error;
+}
+
+export async function markCwgRecapSent(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('cwg_session_meta')
+    .update({ recap_sent_at: new Date().toISOString() })
+    .eq('session_id', sessionId);
+  if (error) throw error;
+}
+
+export async function markCwgFollowupSent(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('cwg_session_meta')
+    .update({ followup_sent_at: new Date().toISOString() })
+    .eq('session_id', sessionId);
+  if (error) throw error;
+}
+
+export async function sendCwgEmail(payload: {
+  type: string;
+  to: string[];
+  cc: string[];
+  subject: string;
+  htmlMessage: string;
+  plainMessage: string;
+  replyTo?: string;
+  accessToken: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-cwg-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${payload.accessToken}`,
+      },
+      body: JSON.stringify({
+        type: payload.type,
+        to: payload.to,
+        cc: payload.cc,
+        subject: payload.subject,
+        htmlMessage: payload.htmlMessage,
+        plainMessage: payload.plainMessage,
+        replyTo: payload.replyTo,
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { ok: false, error: (body as { error?: string }).error ?? 'Failed to send email.' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Network error.' };
+  }
 }

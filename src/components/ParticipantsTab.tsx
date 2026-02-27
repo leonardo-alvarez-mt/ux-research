@@ -23,9 +23,10 @@ interface ParticipantsTabProps {
   sessionId: string;
   onCountChange?: (count: number) => void;
   readOnly?: boolean;
+  isCwg?: boolean;
 }
 
-export default function ParticipantsTab({ sessionId, onCountChange, readOnly = false }: ParticipantsTabProps) {
+export default function ParticipantsTab({ sessionId, onCountChange, readOnly = false, isCwg = false }: ParticipantsTabProps) {
   const [sessionParticipants, setSessionParticipants] = useState<SessionParticipantWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -92,7 +93,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">
-            Participants
+            {isCwg ? 'Attendees' : 'Participants'}
             <span className="ml-2 text-xs font-normal text-slate-400">
               ({sessionParticipants.length} total)
             </span>
@@ -101,7 +102,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
             <div className="flex items-center gap-3 mt-1">
               {PARTICIPANT_STATUSES.map((s) => (
                 <span key={s} className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[s]}`}>
-                  {statusCounts[s]} {s}
+                  {statusCounts[s]} {isCwg && s === 'completed' ? 'attended' : isCwg && s === 'no-show' ? 'absent' : s}
                 </span>
               ))}
             </div>
@@ -110,10 +111,10 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
         {!readOnly && (
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3.5 py-2 rounded-lg transition-colors text-xs shadow-sm"
+            className="flex items-center gap-2 text-white font-semibold px-3.5 py-2 rounded-lg transition-colors text-xs shadow-sm bg-blue-600 hover:bg-blue-700"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            Add Participant
+            {isCwg ? 'Add Attendee' : 'Add Participant'}
           </button>
         )}
       </div>
@@ -134,15 +135,17 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
           </div>
           <p className="text-sm font-medium text-slate-700 mb-1">No participants yet</p>
           <p className="text-xs text-slate-400 max-w-xs mb-4">
-            Add participants to track who is joining this usability session.
+            {isCwg
+              ? 'Add attendees to track who is joining this CWG session. Target 3-5 consistent participants.'
+              : 'Add participants to track who is joining this usability session.'}
           </p>
           {!readOnly && (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-xs"
+              className="flex items-center gap-2 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-xs bg-blue-600 hover:bg-blue-700"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              Add First Participant
+              {isCwg ? 'Add First Attendee' : 'Add First Participant'}
             </button>
           )}
         </div>
@@ -161,7 +164,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
                   Account Manager
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">
-                  Slot
+                  {isCwg ? 'Role' : 'Slot'}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   Status
@@ -183,8 +186,8 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
                   <tr key={sp.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                          <span className="text-blue-700 font-bold text-xs">{initials}</span>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCwg ? 'bg-teal-100' : 'bg-blue-100'}`}>
+                          <span className={`font-bold text-xs ${isCwg ? 'text-teal-700' : 'text-blue-700'}`}>{initials}</span>
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-900 text-sm truncate">{p.name}</p>
@@ -230,7 +233,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
                     <td className="px-4 py-3">
                       {readOnly ? (
                         <span className={`text-xs font-semibold px-2.5 py-1.5 rounded-full ${STATUS_STYLES[sp.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                          {sp.status.charAt(0).toUpperCase() + sp.status.slice(1)}
+                          {isCwg && sp.status === 'completed' ? 'Attended' : isCwg && sp.status === 'no-show' ? 'Absent' : sp.status.charAt(0).toUpperCase() + sp.status.slice(1)}
                         </span>
                       ) : (
                         <div className="relative">
@@ -244,7 +247,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
                           >
                             {PARTICIPANT_STATUSES.map((s) => (
                               <option key={s} value={s} className="bg-white text-slate-900 font-normal">
-                                {s.charAt(0).toUpperCase() + s.slice(1)}
+                                {isCwg && s === 'completed' ? 'Attended' : isCwg && s === 'no-show' ? 'Absent' : s.charAt(0).toUpperCase() + s.slice(1)}
                               </option>
                             ))}
                           </select>

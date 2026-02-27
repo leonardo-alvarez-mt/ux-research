@@ -232,6 +232,62 @@ export interface Database {
           role?: 'viewer' | 'editor';
         };
       };
+      cwg_session_meta: {
+        Row: {
+          id: string;
+          session_id: string;
+          meeting_link: string | null;
+          timezone: string | null;
+          recording_link: string | null;
+          recording_passcode: string | null;
+          recap_sent_at: string | null;
+          followup_sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          meeting_link?: string | null;
+          timezone?: string | null;
+          recording_link?: string | null;
+          recording_passcode?: string | null;
+          recap_sent_at?: string | null;
+          followup_sent_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          meeting_link?: string | null;
+          timezone?: string | null;
+          recording_link?: string | null;
+          recording_passcode?: string | null;
+          recap_sent_at?: string | null;
+          followup_sent_at?: string | null;
+        };
+      };
+      cwg_master_template: {
+        Row: {
+          id: number;
+          title: string;
+          phase: string;
+          day_offset: number;
+          category: string;
+          sort_order: number;
+        };
+        Insert: never;
+        Update: never;
+      };
+      cwg_master_template_attachments: {
+        Row: {
+          id: number;
+          template_task_id: number;
+          label: string;
+          type: string;
+          url: string;
+          file_name: string;
+        };
+        Insert: never;
+        Update: never;
+      };
     };
   };
 }
@@ -398,4 +454,55 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Facilitation': 'bg-teal-100 text-teal-700',
   'Post-Test Cleanup': 'bg-rose-100 text-rose-700',
   'Analysis & Reporting': 'bg-cyan-100 text-cyan-700',
+  'Client Engagement': 'bg-blue-100 text-blue-700',
+  'Communication': 'bg-sky-100 text-sky-700',
+  'Preparation': 'bg-amber-100 text-amber-700',
+  'Documentation & Follow-Up': 'bg-cyan-100 text-cyan-700',
+};
+
+export const CWG_PHASE_ORDER: string[] = [
+  '7-14 Days Before',
+  '48 Hours Before',
+  '24 Hours Before',
+  'Meeting Day',
+  '24 Hours After',
+  '1 Week After',
+];
+
+export type CwgSessionMeta = Database['public']['Tables']['cwg_session_meta']['Row'];
+
+export type CwgEmailType = 'invite' | 'agenda' | 'reminder' | 'recap' | 'followup';
+
+export const CWG_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+] as const;
+
+export const CWG_TIMEZONE_LABELS: Record<string, string> = {
+  'America/New_York': 'Eastern Time (ET)',
+  'America/Chicago': 'Central Time (CT)',
+  'America/Denver': 'Mountain Time (MT)',
+  'America/Los_Angeles': 'Pacific Time (PT)',
+  'America/Toronto': 'Toronto (ET)',
+  'Europe/London': 'London (GMT/BST)',
+  'Europe/Paris': 'Paris (CET)',
+  'Europe/Berlin': 'Berlin (CET)',
+  'Asia/Dubai': 'Dubai (GST)',
+  'Asia/Kolkata': 'India (IST)',
+  'Asia/Singapore': 'Singapore (SGT)',
+  'Asia/Tokyo': 'Tokyo (JST)',
+  'Australia/Sydney': 'Sydney (AEST)',
+  'Pacific/Auckland': 'Auckland (NZST)',
 };

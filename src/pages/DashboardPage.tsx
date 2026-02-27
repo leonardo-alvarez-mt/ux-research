@@ -17,6 +17,7 @@ import type { Session, Task, SessionType, Survey } from '../lib/types';
 import SessionCard from '../components/SessionCard';
 import SurveyCard from '../components/SurveyCard';
 import CreateSessionModal from '../components/CreateSessionModal';
+import CreateCwgSessionModal from '../components/CreateCwgSessionModal';
 import NewSessionMenu from '../components/NewSessionMenu';
 import ComingSoonModal from '../components/ComingSoonModal';
 
@@ -38,6 +39,7 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
   const [surveyResponseCounts, setSurveyResponseCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCwgModal, setShowCwgModal] = useState(false);
   const [selectedSessionType, setSelectedSessionType] = useState<SessionType>('usability_test');
   const [comingSoonType, setComingSoonType] = useState<SessionType | null>(null);
   const [activeTab, setActiveTab] = useState<SessionsTab>('mine');
@@ -118,6 +120,8 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
       if (!user) return;
       const newSurvey = await createSurvey(user.id);
       onViewSurvey(newSurvey.id);
+    } else if (type === 'client_working_group') {
+      setShowCwgModal(true);
     } else {
       setComingSoonType(type);
     }
@@ -224,6 +228,13 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
                 icon={<ClipboardCheck className="w-3 h-3" />}
               />
               <FilterPill
+                label="CWG"
+                active={typeFilter === 'client_working_group'}
+                onClick={() => setTypeFilter('client_working_group')}
+                icon={<Users className="w-3 h-3" />}
+                teal
+              />
+              <FilterPill
                 label="Survey"
                 active={typeFilter === 'survey'}
                 onClick={() => setTypeFilter('survey')}
@@ -286,6 +297,16 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
           sessionType={selectedSessionType}
+        />
+      )}
+      {showCwgModal && (
+        <CreateCwgSessionModal
+          onClose={() => setShowCwgModal(false)}
+          onCreated={(session) => {
+            setShowCwgModal(false);
+            setSessions((prev) => [{ session, completedCount: 0, totalCount: 0 }, ...prev]);
+            loadAll();
+          }}
         />
       )}
       {comingSoonType && (
@@ -392,18 +413,22 @@ function FilterPill({
   active,
   onClick,
   icon,
+  teal,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   icon?: React.ReactNode;
+  teal?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
         active
-          ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+          ? teal
+            ? 'bg-teal-700 text-white border-teal-700 shadow-sm'
+            : 'bg-slate-900 text-white border-slate-900 shadow-sm'
           : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-800'
       }`}
     >
@@ -440,6 +465,20 @@ function EmptyState({ filter, onCreate }: { filter: TypeFilter; onCreate: () => 
         <h3 className="text-slate-900 font-semibold text-base mb-2">No surveys yet</h3>
         <p className="text-slate-500 text-sm max-w-xs">
           Create your first survey from the "New Session" menu above.
+        </p>
+      </div>
+    );
+  }
+
+  if (filter === 'client_working_group') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mb-4">
+          <Users className="w-8 h-8 text-teal-400" />
+        </div>
+        <h3 className="text-slate-900 font-semibold text-base mb-2">No CWG sessions yet</h3>
+        <p className="text-slate-500 text-sm max-w-xs mb-6">
+          Create your first Client Working Group session. Target 3-5 consistent participants per group.
         </p>
       </div>
     );
