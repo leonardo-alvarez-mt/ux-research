@@ -17,15 +17,31 @@ import {
   FileText,
   Link2,
   Pencil,
+  Video,
+  Globe,
+  Check,
+  X,
 } from 'lucide-react';
-import { fetchSessionById, fetchTasksBySession, toggleTaskCompletion, deleteTask, fetchSessionParticipants, fetchCollaboratorRole, getActiveShareToken, dismissSessionVideo } from '../lib/data';
-import type { Session, Task, CollaboratorRole } from '../lib/types';
-import { PHASE_ORDER, CATEGORY_COLORS } from '../lib/types';
+import {
+  fetchSessionById,
+  fetchTasksBySession,
+  toggleTaskCompletion,
+  deleteTask,
+  fetchSessionParticipants,
+  fetchCollaboratorRole,
+  getActiveShareToken,
+  dismissSessionVideo,
+  fetchCwgSessionMeta,
+  updateCwgSessionMeta,
+} from '../lib/data';
+import type { Session, Task, CollaboratorRole, CwgSessionMeta, SessionParticipantWithDetails } from '../lib/types';
+import { PHASE_ORDER, CWG_PHASE_ORDER, CATEGORY_COLORS, CWG_TIMEZONE_LABELS } from '../lib/types';
 import ParticipantsTab from '../components/ParticipantsTab';
 import TaskAttachments from '../components/TaskAttachments';
 import ShareModal from '../components/ShareModal';
 import DemoVideoBanner from '../components/DemoVideoBanner';
 import ReportSubmitModal from '../components/ReportSubmitModal';
+import CwgEmailPanel from '../components/CwgEmailPanel';
 import { useAuth } from '../context/AuthContext';
 
 interface SessionDetailPageProps {
@@ -58,21 +74,239 @@ function isOverdue(dueDateStr: string, isCompleted: boolean): boolean {
   return due < today;
 }
 
+interface CwgRecordingPanelProps {
+  cwgMeta: CwgSessionMeta;
+  sessionId: string;
+  canEdit: boolean;
+  onUpdated: (meta: Partial<CwgSessionMeta>) => void;
+}
+
+function CwgRecordingPanel({ cwgMeta, sessionId, canEdit, onUpdated }: CwgRecordingPanelProps) {
+  const [editing, setEditing] = useState(!cwgMeta.recording_link);
+  const [recLink, setRecLink] = useState(cwgMeta.recording_link ?? '');
+  const [recPass, setRecPass] = useState(cwgMeta.recording_passcode ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await updateCwgSessionMeta(sessionId, {
+        recording_link: recLink.trim() || null,
+        recording_passcode: recPass.trim() || null,
+      });
+      onUpdated({ recording_link: recLink.trim() || null, recording_passcode: recPass.trim() || null });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing && cwgMeta.recording_link) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 flex items-center gap-4">
+        <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center shrink-0">
+          <Video className="w-5 h-5 text-teal-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Meeting Recording</p>
+          <a
+            href={cwgMeta.recording_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-teal-600 hover:text-teal-800 hover:underline flex items-center gap-1.5 min-w-0"
+          >
+            <span className="truncate">{cwgMeta.recording_link}</span>
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+          </a>
+          {cwgMeta.recording_passcode && (
+            <p className="text-xs text-slate-500 mt-0.5">Passcode: {cwgMeta.recording_passcode}</p>
+          )}
+        </div>
+        {canEdit && (
+          <button
+            onClick={() => setEditing(true)}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors shrink-0"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Edit
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (!canEdit) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+          <Video className="w-4 h-4 text-teal-600" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-800">Add Recording</p>
+          <p className="text-xs text-slate-500">Share the meeting recording with participants</p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Recording Link</label>
+          <input
+            type="url"
+            value={recLink}
+            onChange={(e) => setRecLink(e.target.value)}
+            placeholder="https://zoom.us/rec/..."
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Passcode (optional)</label>
+          <input
+            type="text"
+            value={recPass}
+            onChange={(e) => setRecPass(e.target.value)}
+            placeholder="Recording passcode..."
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+          />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {cwgMeta.recording_link && (
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 px-3 py-2 border border-slate-200 rounded-lg transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !recLink.trim()}
+            className="flex items-center gap-1.5 text-xs font-semibold bg-teal-600 hover:bg-teal-700 disabled:bg-teal-300 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Save Recording
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CwgMeetingDetailsBarProps {
+  cwgMeta: CwgSessionMeta;
+  sessionId: string;
+  canEdit: boolean;
+  onUpdated: (meta: Partial<CwgSessionMeta>) => void;
+}
+
+function CwgMeetingDetailsBar({ cwgMeta, sessionId, canEdit, onUpdated }: CwgMeetingDetailsBarProps) {
+  const [editing, setEditing] = useState(false);
+  const [link, setLink] = useState(cwgMeta.meeting_link ?? '');
+  const [tz, setTz] = useState(cwgMeta.timezone ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await updateCwgSessionMeta(sessionId, {
+        meeting_link: link.trim() || null,
+        timezone: tz.trim() || null,
+      });
+      onUpdated({ meeting_link: link.trim() || null, timezone: tz.trim() || null });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      {cwgMeta.meeting_link && !editing && (
+        <a
+          href={cwgMeta.meeting_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-sm font-medium text-teal-600 hover:text-teal-800 hover:underline transition-colors"
+        >
+          <Link2 className="w-4 h-4" />
+          Join Meeting
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      )}
+      {cwgMeta.timezone && !editing && (
+        <span className="flex items-center gap-1.5 text-sm text-slate-500">
+          <Globe className="w-4 h-4" />
+          {CWG_TIMEZONE_LABELS[cwgMeta.timezone] ?? cwgMeta.timezone}
+        </span>
+      )}
+      {canEdit && !editing && (
+        <button
+          onClick={() => setEditing(true)}
+          className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          <Pencil className="w-3 h-3" />
+          {cwgMeta.meeting_link ? 'Edit' : 'Add meeting link'}
+        </button>
+      )}
+      {editing && (
+        <div className="flex items-center gap-2 flex-wrap w-full mt-1">
+          <input
+            type="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="Meeting link (Zoom, Teams...)"
+            className="flex-1 min-w-[200px] px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <input
+            type="text"
+            value={tz}
+            onChange={(e) => setTz(e.target.value)}
+            placeholder="Time zone"
+            className="w-40 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Save
+          </button>
+          <button
+            onClick={() => { setEditing(false); setLink(cwgMeta.meeting_link ?? ''); setTz(cwgMeta.timezone ?? ''); }}
+            className="text-xs text-slate-400 hover:text-slate-600 transition-colors px-2 py-1.5"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPageProps) {
   const { user } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>('tasks');
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(PHASE_ORDER));
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set([...PHASE_ORDER, ...CWG_PHASE_ORDER]));
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [participantCount, setParticipantCount] = useState<number | null>(null);
+  const [participants, setParticipants] = useState<SessionParticipantWithDetails[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [hasActiveShareLink, setHasActiveShareLink] = useState(false);
   const [collaboratorRole, setCollaboratorRole] = useState<CollaboratorRole | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [cwgMeta, setCwgMeta] = useState<CwgSessionMeta | null>(null);
   const reportModalShownRef = useRef(false);
+
+  const isCwg = session?.session_type === 'client_working_group';
+  const phaseOrder = isCwg ? CWG_PHASE_ORDER : PHASE_ORDER;
 
   useEffect(() => {
     loadData();
@@ -81,7 +315,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
   useEffect(() => {
     if (loading) return;
     const canEdit = isOwner || collaboratorRole === 'editor';
-    if (!canEdit) return;
+    if (!canEdit || isCwg) return;
     const total = tasks.length;
     const completed = tasks.filter((t) => t.is_completed).length;
     const allDone = total > 0 && completed === total;
@@ -90,7 +324,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
       reportModalShownRef.current = true;
       setShowReportModal(true);
     }
-  }, [tasks, loading, isOwner, collaboratorRole, session?.report_url]);
+  }, [tasks, loading, isOwner, collaboratorRole, session?.report_url, isCwg]);
 
   async function loadData() {
     setLoading(true);
@@ -102,7 +336,9 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
       ]);
       setSession(s);
       setTasks(t);
-      setParticipantCount(participantsResult ? participantsResult.length : 0);
+      const parts = participantsResult ?? [];
+      setParticipants(parts);
+      setParticipantCount(parts.length);
 
       if (s && user) {
         const ownerCheck = s.user_id === user.id;
@@ -113,6 +349,11 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
         }
         const shareToken = await getActiveShareToken(sessionId);
         setHasActiveShareLink(!!shareToken);
+
+        if (s.session_type === 'client_working_group') {
+          const meta = await fetchCwgSessionMeta(sessionId);
+          setCwgMeta(meta);
+        }
       }
     } finally {
       setLoading(false);
@@ -190,25 +431,30 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
   const totalCount = tasks.length;
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const daysRemaining = getDaysRemaining(session.test_date);
+  const canEdit = isOwner || collaboratorRole === 'editor';
 
   const badgeClass =
     daysRemaining < 0
       ? 'bg-red-100 text-red-700 border-red-200'
       : daysRemaining <= 7
       ? 'bg-amber-100 text-amber-700 border-amber-200'
+      : isCwg
+      ? 'bg-teal-100 text-teal-700 border-teal-200'
       : 'bg-blue-100 text-blue-700 border-blue-200';
 
   const badgeLabel =
     daysRemaining < 0
-      ? `${Math.abs(daysRemaining)} days overdue`
+      ? `${Math.abs(daysRemaining)} days ago`
       : daysRemaining === 0
-      ? 'Test Day!'
+      ? isCwg ? 'Meeting Today!' : 'Test Day!'
       : `${daysRemaining} days remaining`;
 
-  const groupedTasks = PHASE_ORDER.reduce<Record<string, Task[]>>((acc, phase) => {
+  const groupedTasks = phaseOrder.reduce<Record<string, Task[]>>((acc, phase) => {
     acc[phase] = tasks.filter((t) => t.phase === phase);
     return acc;
   }, {});
+
+  const accentColor = isCwg ? 'teal' : 'blue';
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -222,10 +468,15 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
         </button>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-          <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-xl font-bold text-slate-900">{session.name}</h1>
+                {isCwg && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+                    CWG
+                  </span>
+                )}
                 {!isOwner && collaboratorRole && (
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     collaboratorRole === 'editor'
@@ -244,7 +495,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
               {isOwner && (
                 <button
                   onClick={() => setShowShareModal(true)}
-                  className="relative flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-blue-200 transition-all"
+                  className={`relative flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-${accentColor}-600 hover:bg-${accentColor}-50 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-${accentColor}-200 transition-all`}
                   title="Share session"
                 >
                   <Share2 className="w-4 h-4" />
@@ -260,12 +511,24 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-5">
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
             <CalendarDays className="w-4 h-4" />
             <span>
-              Test Date: <strong className="text-slate-700">{formatDate(session.test_date)}</strong>
+              {isCwg ? 'Meeting Date' : 'Test Date'}:{' '}
+              <strong className="text-slate-700">{formatDate(session.test_date)}</strong>
             </span>
           </div>
+
+          {isCwg && cwgMeta && (
+            <div className="mb-4">
+              <CwgMeetingDetailsBar
+                cwgMeta={cwgMeta}
+                sessionId={sessionId}
+                canEdit={canEdit}
+                onUpdated={(fields) => setCwgMeta((prev) => prev ? { ...prev, ...fields } : prev)}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
@@ -277,7 +540,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
             <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-700 ${
-                  progress === 100 ? 'bg-emerald-500' : 'bg-blue-500'
+                  progress === 100 ? 'bg-emerald-500' : isCwg ? 'bg-teal-500' : 'bg-blue-500'
                 }`}
                 style={{ width: `${progress}%` }}
               />
@@ -285,7 +548,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
           </div>
         </div>
 
-        {session.report_url && (
+        {session.report_url && !isCwg && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4 mb-6 flex items-center gap-4">
             <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
               {session.report_type === 'file' ? (
@@ -308,7 +571,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" />
               </a>
             </div>
-            {(isOwner || collaboratorRole === 'editor') && (
+            {canEdit && (
               <button
                 onClick={() => setShowReportModal(true)}
                 title="Replace report"
@@ -321,12 +584,38 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
           </div>
         )}
 
-        {!session.video_dismissed && (
+        {isCwg && cwgMeta && daysRemaining <= 0 && (
+          <div className="mb-6">
+            <CwgRecordingPanel
+              cwgMeta={cwgMeta}
+              sessionId={sessionId}
+              canEdit={canEdit}
+              onUpdated={(fields) => setCwgMeta((prev) => prev ? { ...prev, ...fields } : prev)}
+            />
+          </div>
+        )}
+
+        {!session.video_dismissed && !isCwg && (
           <div className="mb-6">
             <DemoVideoBanner
               sessionId={sessionId}
-              canDismiss={isOwner || collaboratorRole === 'editor'}
+              canDismiss={canEdit}
               onDismiss={handleDismissVideo}
+            />
+          </div>
+        )}
+
+        {isCwg && cwgMeta && (
+          <div className="mb-6">
+            <CwgEmailPanel
+              session={session}
+              cwgMeta={cwgMeta}
+              participants={participants}
+              tasks={tasks}
+              onMetaUpdated={async () => {
+                const meta = await fetchCwgSessionMeta(sessionId);
+                setCwgMeta(meta);
+              }}
             />
           </div>
         )}
@@ -337,14 +626,16 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
               onClick={() => setActiveTab('tasks')}
               className={`flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === 'tasks'
-                  ? 'border-blue-600 text-blue-600'
+                  ? `border-${accentColor}-600 text-${accentColor}-600`
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
               <ListChecks className="w-4 h-4" />
               Tasks
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                activeTab === 'tasks' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                activeTab === 'tasks'
+                  ? `bg-${accentColor}-100 text-${accentColor}-700`
+                  : 'bg-slate-100 text-slate-500'
               }`}>
                 {completedCount}/{totalCount}
               </span>
@@ -353,15 +644,17 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
               onClick={() => setActiveTab('participants')}
               className={`flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === 'participants'
-                  ? 'border-blue-600 text-blue-600'
+                  ? `border-${accentColor}-600 text-${accentColor}-600`
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
               <Users className="w-4 h-4" />
-              Participants
+              {isCwg ? 'Attendees' : 'Participants'}
               {participantCount !== null && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                  activeTab === 'participants' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                  activeTab === 'participants'
+                    ? `bg-${accentColor}-100 text-${accentColor}-700`
+                    : 'bg-slate-100 text-slate-500'
                 }`}>
                   {participantCount}
                 </span>
@@ -372,7 +665,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
           <div className="p-6">
             {activeTab === 'tasks' && (
               <div className="space-y-3">
-                {PHASE_ORDER.map((phase) => {
+                {phaseOrder.map((phase) => {
                   const phaseTasks = groupedTasks[phase] ?? [];
                   if (phaseTasks.length === 0) return null;
 
@@ -398,7 +691,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
                           )}
                           <span className="font-semibold text-slate-900 text-sm">{phase}</span>
                           {hasOverdue && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
-                          {phase === 'Test Day' && (
+                          {!isCwg && phase === 'Test Day' && (
                             <a
                               href="https://sensible.com/downloads/things-a-therapist-would-say.pdf"
                               target="_blank"
@@ -420,7 +713,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
                               className={`h-full rounded-full transition-all ${
                                 phaseCompleted === phaseTotal && phaseTotal > 0
                                   ? 'bg-emerald-500'
-                                  : 'bg-blue-400'
+                                  : isCwg ? 'bg-teal-400' : 'bg-blue-400'
                               }`}
                               style={{
                                 width: `${phaseTotal > 0 ? (phaseCompleted / phaseTotal) * 100 : 0}%`,
@@ -440,7 +733,8 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
                               toggling={togglingIds.has(task.id)}
                               onToggle={handleToggle}
                               onDelete={handleDeleteTask}
-                              readOnly={!isOwner && collaboratorRole !== 'editor'}
+                              readOnly={!canEdit}
+                              isCwg={isCwg}
                             />
                           ))}
                         </div>
@@ -454,8 +748,12 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
             {activeTab === 'participants' && (
               <ParticipantsTab
                 sessionId={sessionId}
-                onCountChange={setParticipantCount}
-                readOnly={!isOwner && collaboratorRole !== 'editor'}
+                onCountChange={(count) => {
+                  setParticipantCount(count);
+                  fetchSessionParticipants(sessionId).then(setParticipants).catch(() => {});
+                }}
+                readOnly={!canEdit}
+                isCwg={isCwg}
               />
             )}
           </div>
@@ -470,7 +768,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
         />
       )}
 
-      {showReportModal && session && (
+      {showReportModal && session && !isCwg && (
         <ReportSubmitModal
           sessionId={sessionId}
           sessionName={session.name}
@@ -492,9 +790,10 @@ interface TaskRowProps {
   onToggle: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
   readOnly?: boolean;
+  isCwg?: boolean;
 }
 
-function TaskRow({ task, sessionId, toggling, onToggle, onDelete, readOnly = false }: TaskRowProps) {
+function TaskRow({ task, sessionId, toggling, onToggle, onDelete, readOnly = false, isCwg = false }: TaskRowProps) {
   const overdue = isOverdue(task.due_date, task.is_completed);
   const categoryColor = CATEGORY_COLORS[task.category] ?? 'bg-slate-100 text-slate-600';
 
@@ -521,13 +820,13 @@ function TaskRow({ task, sessionId, toggling, onToggle, onDelete, readOnly = fal
           className="mt-0.5 shrink-0 transition-transform hover:scale-110"
         >
           {toggling ? (
-            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+            <Loader2 className={`w-5 h-5 animate-spin ${isCwg ? 'text-teal-400' : 'text-blue-400'}`} />
           ) : task.is_completed ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           ) : overdue ? (
             <AlertCircle className="w-5 h-5 text-red-400" />
           ) : (
-            <Circle className="w-5 h-5 text-slate-300 hover:text-blue-400 transition-colors" />
+            <Circle className={`w-5 h-5 text-slate-300 transition-colors ${isCwg ? 'hover:text-teal-400' : 'hover:text-blue-400'}`} />
           )}
         </button>
       )}

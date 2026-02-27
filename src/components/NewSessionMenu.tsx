@@ -35,9 +35,9 @@ const SESSION_OPTIONS: SessionTypeOption[] = [
   {
     type: 'client_working_group',
     label: 'Client Working Group',
-    description: 'Collaborative workshop with stakeholders',
+    description: 'Collaborative session with client stakeholders',
     icon: <Users className="w-4 h-4" />,
-    available: false,
+    available: true,
   },
   {
     type: 'guerrilla_testing',
@@ -102,9 +102,11 @@ export default function NewSessionMenu({ onSelect }: NewSessionMenuProps) {
                 }`}
               >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                  option.available
-                    ? 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'
-                    : 'bg-slate-100 text-slate-400'
+                  !option.available
+                    ? 'bg-slate-100 text-slate-400'
+                    : option.type === 'client_working_group'
+                    ? 'bg-teal-100 text-teal-600 group-hover:bg-teal-600 group-hover:text-white'
+                    : 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'
                 }`}>
                   {option.icon}
                 </div>
