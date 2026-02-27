@@ -146,7 +146,7 @@ export default function SessionCard({
         </div>
         <button
           onClick={() => onView(session.id)}
-          className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${isCwg ? 'text-teal-600 hover:text-teal-700' : 'text-blue-600 hover:text-blue-700'}`}
+          className="flex items-center gap-1.5 text-xs font-medium transition-colors text-blue-600 hover:text-blue-700"
         >
           View session
           <ChevronRight className="w-3.5 h-3.5" />
