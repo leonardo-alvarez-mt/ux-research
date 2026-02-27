@@ -113,7 +113,7 @@ function CwgRecordingPanel({ cwgMeta, sessionId, canEdit, onUpdated }: CwgRecord
             href={cwgMeta.recording_link}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-semibold text-teal-600 hover:text-teal-800 hover:underline flex items-center gap-1.5 min-w-0"
+            className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 min-w-0"
           >
             <span className="truncate">{cwgMeta.recording_link}</span>
             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
@@ -156,7 +156,7 @@ function CwgRecordingPanel({ cwgMeta, sessionId, canEdit, onUpdated }: CwgRecord
             value={recLink}
             onChange={(e) => setRecLink(e.target.value)}
             placeholder="https://zoom.us/rec/..."
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
         <div>
@@ -166,7 +166,7 @@ function CwgRecordingPanel({ cwgMeta, sessionId, canEdit, onUpdated }: CwgRecord
             value={recPass}
             onChange={(e) => setRecPass(e.target.value)}
             placeholder="Recording passcode..."
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
         <div className="flex gap-2 pt-1">
@@ -184,7 +184,7 @@ function CwgRecordingPanel({ cwgMeta, sessionId, canEdit, onUpdated }: CwgRecord
             type="button"
             onClick={handleSave}
             disabled={saving || !recLink.trim()}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-teal-600 hover:bg-teal-700 disabled:bg-teal-300 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg transition-colors"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
             Save Recording
@@ -229,7 +229,7 @@ function CwgMeetingDetailsBar({ cwgMeta, sessionId, canEdit, onUpdated }: CwgMee
           href={cwgMeta.meeting_link}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-sm font-medium text-teal-600 hover:text-teal-800 hover:underline transition-colors"
+          className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
         >
           <Link2 className="w-4 h-4" />
           Join Meeting
@@ -258,19 +258,19 @@ function CwgMeetingDetailsBar({ cwgMeta, sessionId, canEdit, onUpdated }: CwgMee
             value={link}
             onChange={(e) => setLink(e.target.value)}
             placeholder="Meeting link (Zoom, Teams...)"
-            className="flex-1 min-w-[200px] px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="flex-1 min-w-[200px] px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="text"
             value={tz}
             onChange={(e) => setTz(e.target.value)}
             placeholder="Time zone"
-            className="w-40 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-40 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
             Save
@@ -454,7 +454,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
     return acc;
   }, {});
 
-  const accentColor = isCwg ? 'teal' : 'blue';
+  const accentColor = 'blue';
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -540,7 +540,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
             <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-700 ${
-                  progress === 100 ? 'bg-emerald-500' : isCwg ? 'bg-teal-500' : 'bg-blue-500'
+                  progress === 100 ? 'bg-emerald-500' : 'bg-blue-500'
                 }`}
                 style={{ width: `${progress}%` }}
               />
@@ -713,7 +713,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
                               className={`h-full rounded-full transition-all ${
                                 phaseCompleted === phaseTotal && phaseTotal > 0
                                   ? 'bg-emerald-500'
-                                  : isCwg ? 'bg-teal-400' : 'bg-blue-400'
+                                  : 'bg-blue-400'
                               }`}
                               style={{
                                 width: `${phaseTotal > 0 ? (phaseCompleted / phaseTotal) * 100 : 0}%`,
@@ -820,13 +820,13 @@ function TaskRow({ task, sessionId, toggling, onToggle, onDelete, readOnly = fal
           className="mt-0.5 shrink-0 transition-transform hover:scale-110"
         >
           {toggling ? (
-            <Loader2 className={`w-5 h-5 animate-spin ${isCwg ? 'text-teal-400' : 'text-blue-400'}`} />
+            <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
           ) : task.is_completed ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           ) : overdue ? (
             <AlertCircle className="w-5 h-5 text-red-400" />
           ) : (
-            <Circle className={`w-5 h-5 text-slate-300 transition-colors ${isCwg ? 'hover:text-teal-400' : 'hover:text-blue-400'}`} />
+            <Circle className="w-5 h-5 text-slate-300 transition-colors hover:text-blue-400" />
           )}
         </button>
       )}

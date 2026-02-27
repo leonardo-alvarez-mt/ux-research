@@ -111,7 +111,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
         {!readOnly && (
           <button
             onClick={() => setShowModal(true)}
-            className={`flex items-center gap-2 text-white font-semibold px-3.5 py-2 rounded-lg transition-colors text-xs shadow-sm ${isCwg ? 'bg-teal-600 hover:bg-teal-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className="flex items-center gap-2 text-white font-semibold px-3.5 py-2 rounded-lg transition-colors text-xs shadow-sm bg-blue-600 hover:bg-blue-700"
           >
             <UserPlus className="w-3.5 h-3.5" />
             {isCwg ? 'Add Attendee' : 'Add Participant'}
@@ -142,7 +142,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
           {!readOnly && (
             <button
               onClick={() => setShowModal(true)}
-              className={`flex items-center gap-2 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-xs ${isCwg ? 'bg-teal-600 hover:bg-teal-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              className="flex items-center gap-2 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-xs bg-blue-600 hover:bg-blue-700"
             >
               <UserPlus className="w-3.5 h-3.5" />
               {isCwg ? 'Add First Attendee' : 'Add First Participant'}
@@ -241,7 +241,7 @@ export default function ParticipantsTab({ sessionId, onCountChange, readOnly = f
                             value={sp.status}
                             onChange={(e) => handleStatusChange(sp.id, e.target.value)}
                             disabled={updatingId === sp.id}
-                            className={`text-xs font-semibold px-2.5 py-1.5 rounded-full border-0 appearance-none cursor-pointer pr-6 focus:outline-none focus:ring-2 focus:ring-teal-400 ${
+                            className={`text-xs font-semibold px-2.5 py-1.5 rounded-full border-0 appearance-none cursor-pointer pr-6 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                               STATUS_STYLES[sp.status] ?? 'bg-slate-100 text-slate-600'
                             }`}
                           >
