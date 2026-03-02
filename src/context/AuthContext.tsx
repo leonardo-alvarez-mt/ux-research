@@ -26,8 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
         const { data: refreshed } = await supabase.auth.refreshSession();
-        setSession(refreshed.session);
-        setUser(refreshed.session?.user ?? null);
+        const confirmedUser = refreshed.session?.user?.email_confirmed_at ? refreshed.session.user : null;
+        if (!confirmedUser) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+        } else {
+          setSession(refreshed.session);
+          setUser(confirmedUser);
+        }
       } else {
         setSession(null);
         setUser(null);
@@ -35,7 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (newSession?.user && !newSession.user.email_confirmed_at) {
+        return;
+      }
       setSession(newSession);
       setUser(newSession?.user ?? null);
     });

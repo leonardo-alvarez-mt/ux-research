@@ -114,9 +114,9 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
       password,
       options: { data: { full_name: fullName } },
     });
-    setLoading(false);
 
     if (authError) {
+      setLoading(false);
       setError(authError.message);
       return;
     }
@@ -129,6 +129,8 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
       });
     }
 
+    await supabase.auth.signOut();
+    setLoading(false);
     setSuccess(true);
   }
 
