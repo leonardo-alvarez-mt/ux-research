@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { supabase } from './lib/supabase';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
 import DashboardPage from './pages/DashboardPage';
@@ -12,9 +13,9 @@ import SurveyBuilderPage from './pages/SurveyBuilderPage';
 import SurveyResponsePage from './pages/SurveyResponsePage';
 import SurveyResultsPage from './pages/SurveyResultsPage';
 import Sidebar, { MobileMenuButton } from './components/Sidebar';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle } from 'lucide-react';
 
-type AuthView = 'login' | 'signup';
+type AuthView = 'login' | 'signup' | 'email-confirmed';
 type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results';
 
 const OAUTH_PENDING_KEY = 'google_sheets_oauth_pending';
@@ -22,6 +23,24 @@ const OAUTH_PENDING_KEY = 'google_sheets_oauth_pending';
 interface OAuthPending {
   surveyId: string;
   claimToken: string;
+}
+
+function consumeEmailConfirmationToken(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+  const type = params.get('type') || hashParams.get('type');
+  const accessToken = params.get('access_token') || hashParams.get('access_token');
+
+  if (type === 'signup' || type === 'email_change') {
+    if (accessToken) {
+      const clean = new URL(window.location.href);
+      clean.search = '';
+      clean.hash = '';
+      window.history.replaceState({}, '', clean.toString());
+      return true;
+    }
+  }
+  return false;
 }
 
 function getPathTokens(): { shareToken: string | null; surveyToken: string | null } {
@@ -77,9 +96,40 @@ export function clearOAuthPending() {
   sessionStorage.removeItem(OAUTH_PENDING_KEY);
 }
 
+function EmailConfirmedScreen({ onContinue }: { onContinue: () => void }) {
+  const bgStyle = { background: 'linear-gradient(135deg, #0d3b8c 0%, #1a5abf 30%, #0ea5e9 70%, #06b6d4 100%)' };
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden" style={bgStyle}>
+      <div className="relative z-10 w-full max-w-sm">
+        <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10 text-center">
+          <div className="flex justify-center mb-8">
+            <img src="/MitratechUXsvg.svg" alt="Mitratech UX" className="h-9 w-auto" />
+          </div>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-5">
+            <CheckCircle className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Email confirmed!</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            Your account is now active. You can log in with your credentials.
+          </p>
+          <button
+            onClick={onContinue}
+            className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm"
+            style={{ background: '#1a56db' }}
+          >
+            Go to Log In
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const { user, loading } = useAuth();
-  const [authView, setAuthView] = useState<AuthView>('login');
+  const [authView, setAuthView] = useState<AuthView>(() =>
+    consumeEmailConfirmationToken() ? 'email-confirmed' : 'login'
+  );
   const [appView, setAppView] = useState<AppView>('dashboard');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
@@ -89,6 +139,12 @@ function AppContent() {
   const [surveyToken, setSurveyToken] = useState<string | null>(() => getPathTokens().surveyToken);
   const [refreshKey, setRefreshKey] = useState(0);
   const [oauthPending, setOauthPending] = useState<OAuthPending | null>(null);
+
+  useEffect(() => {
+    if (authView === 'email-confirmed') {
+      supabase.auth.signOut();
+    }
+  }, [authView]);
 
   useEffect(() => {
     const pending = consumeOAuthCallbackParams();
@@ -152,6 +208,9 @@ function AppContent() {
   }
 
   if (!user) {
+    if (authView === 'email-confirmed') {
+      return <EmailConfirmedScreen onContinue={() => setAuthView('login')} />;
+    }
     if (authView === 'signup') {
       return <SignUpPage onSwitchToLogin={() => setAuthView('login')} />;
     }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Mail, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const ALLOWED_DOMAIN = 'mitratech.com';
@@ -88,6 +88,8 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -130,6 +132,14 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
     setSuccess(true);
   }
 
+  async function handleResend() {
+    setResendLoading(true);
+    setResendSuccess(false);
+    await supabase.auth.resend({ type: 'signup', email });
+    setResendLoading(false);
+    setResendSuccess(true);
+  }
+
   const bgStyle = { background: 'linear-gradient(135deg, #0d3b8c 0%, #1a5abf 30%, #0ea5e9 70%, #06b6d4 100%)' };
 
   if (success) {
@@ -139,13 +149,41 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
           <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10 text-center">
             <MitratechLogo />
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-5">
-              <CheckCircle className="w-8 h-8 text-emerald-600" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-5">
+              <Mail className="w-8 h-8 text-blue-600" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Account Created</h2>
-            <p className="text-slate-500 text-sm mb-6">
-              Welcome to Mitratech UX. You can now log in with your credentials.
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Check your email</h2>
+            <p className="text-slate-500 text-sm mb-1">
+              We sent a confirmation link to
             </p>
+            <p className="text-slate-800 font-semibold text-sm mb-5 break-all">{email}</p>
+            <p className="text-slate-400 text-xs mb-6">
+              Click the link in the email to confirm your account, then come back here to log in.
+            </p>
+
+            {resendSuccess ? (
+              <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm mb-4">
+                <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                </span>
+                Email resent successfully
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendLoading}
+                className="w-full flex items-center justify-center gap-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg py-2.5 px-4 hover:bg-slate-50 transition-colors mb-4 disabled:opacity-60"
+              >
+                {resendLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                Resend confirmation email
+              </button>
+            )}
+
             <button
               onClick={onSwitchToLogin}
               className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm"
