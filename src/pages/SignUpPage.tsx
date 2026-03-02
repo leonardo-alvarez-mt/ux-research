@@ -133,6 +133,18 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
     }
 
     await supabase.auth.signOut();
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    await fetch(`${supabaseUrl}/functions/v1/send-signup-confirmation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify({ email }),
+    });
+
     setLoading(false);
     setSuccess(true);
   }
@@ -140,7 +152,16 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
   async function handleResend() {
     setResendLoading(true);
     setResendSuccess(false);
-    await supabase.auth.resend({ type: 'signup', email });
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    await fetch(`${supabaseUrl}/functions/v1/send-signup-confirmation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify({ email }),
+    });
     setResendLoading(false);
     setResendSuccess(true);
   }
