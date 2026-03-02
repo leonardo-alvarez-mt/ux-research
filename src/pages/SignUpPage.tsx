@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, AlertCircle, Mail, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { setSignupInProgress } from '../context/AuthContext';
 
 const ALLOWED_DOMAIN = 'mitratech.com';
 
@@ -109,14 +110,16 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
     }
 
     setLoading(true);
+    setSignupInProgress(true);
     const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName } },
     });
-    setLoading(false);
 
     if (authError) {
+      setSignupInProgress(false);
+      setLoading(false);
       setError(authError.message);
       return;
     }
@@ -129,6 +132,8 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
       });
     }
 
+    await supabase.auth.signOut();
+    setLoading(false);
     setSuccess(true);
   }
 
