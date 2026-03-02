@@ -3,6 +3,12 @@ import type { ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+let _signupInProgress = false;
+
+export function setSignupInProgress(value: boolean) {
+  _signupInProgress = value;
+}
+
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
@@ -43,6 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (_signupInProgress) {
+        _signupInProgress = false;
+        return;
+      }
       if (newSession?.user && !newSession.user.email_confirmed_at) {
         return;
       }
