@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Eye, EyeOff, AlertCircle, Mail, Loader2, RefreshCw } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { setSignupInProgress } from '../context/AuthContext';
 
 const ALLOWED_DOMAIN = 'mitratech.com';
 
@@ -94,6 +92,9 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -110,37 +111,40 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
     }
 
     setLoading(true);
-    setSignupInProgress(true);
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } },
+
+    const resp = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify({ email, password, full_name: fullName }),
     });
 
-    if (authError) {
-      setSignupInProgress(false);
-      setLoading(false);
-      setError(authError.message);
+    const result = await resp.json();
+    setLoading(false);
+
+    if (!resp.ok) {
+      setError(result.error ?? 'Failed to create account. Please try again.');
       return;
     }
 
-    if (data.user) {
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        email: data.user.email ?? email,
-        full_name: fullName,
-      });
-    }
-
-    await supabase.auth.signOut();
-    setLoading(false);
     setSuccess(true);
   }
 
   async function handleResend() {
     setResendLoading(true);
     setResendSuccess(false);
-    await supabase.auth.resend({ type: 'signup', email });
+
+    await fetch(`${supabaseUrl}/functions/v1/register-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify({ email, resend: true }),
+    });
+
     setResendLoading(false);
     setResendSuccess(true);
   }
