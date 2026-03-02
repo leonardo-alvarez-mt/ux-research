@@ -5,10 +5,6 @@ import { supabase } from '../lib/supabase';
 
 let _signupInProgress = false;
 
-export function setSignupInProgress(value: boolean) {
-  _signupInProgress = value;
-}
-
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
@@ -54,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (newSession?.user && !newSession.user.email_confirmed_at) {
+        (async () => {
+          await supabase.auth.signOut();
+        })();
         return;
       }
       setSession(newSession);

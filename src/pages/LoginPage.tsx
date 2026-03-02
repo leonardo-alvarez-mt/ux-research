@@ -28,17 +28,21 @@ export default function LoginPage({ onSwitchToSignUp }: LoginPageProps) {
 
     setLoading(true);
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
 
     if (authError) {
+      setLoading(false);
       setError(authError.message);
       return;
     }
 
     if (data.user && !data.user.email_confirmed_at) {
       await supabase.auth.signOut();
+      setLoading(false);
       setError('Please confirm your email address before logging in. Check your inbox for the confirmation link.');
+      return;
     }
+
+    setLoading(false);
   }
 
   return (
