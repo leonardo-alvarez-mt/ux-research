@@ -1,5 +1,7 @@
-import { CalendarDays, ChevronRight, Archive, Trash2, Users } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarDays, ChevronRight, Archive, Trash2, Users, Pencil } from 'lucide-react';
 import type { Session } from '../lib/types';
+import CreateSessionModal from './CreateSessionModal';
 
 interface SessionCardProps {
   session: Session;
@@ -8,6 +10,7 @@ interface SessionCardProps {
   onView: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  onSessionUpdated?: (updated: Session) => void;
   showUnarchive?: boolean;
   isShared?: boolean;
 }
@@ -34,13 +37,17 @@ export default function SessionCard({
   onView,
   onArchive,
   onDelete,
+  onSessionUpdated,
   showUnarchive = false,
   isShared = false,
 }: SessionCardProps) {
-  const daysRemaining = getDaysRemaining(session.test_date);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentSession, setCurrentSession] = useState(session);
+
+  const daysRemaining = getDaysRemaining(currentSession.test_date);
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const isCwg = session.session_type === 'client_working_group';
+  const isCwg = currentSession.session_type === 'client_working_group';
 
   const badgeClass =
     progress === 100
@@ -62,96 +69,123 @@ export default function SessionCard({
       ? 'Today!'
       : `${daysRemaining}d remaining`;
 
+  function handleUpdated(updated: Session) {
+    setCurrentSession(updated);
+    setShowEditModal(false);
+    onSessionUpdated?.(updated);
+  }
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            {isShared && (
-              <div className="flex items-center gap-1 text-xs text-sky-600 font-semibold mb-1">
-                <Users className="w-3 h-3" />
-                Shared with me
+    <>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group overflow-hidden">
+        <div className="p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex-1 min-w-0">
+              {isShared && (
+                <div className="flex items-center gap-1 text-xs text-sky-600 font-semibold mb-1">
+                  <Users className="w-3 h-3" />
+                  Shared with me
+                </div>
+              )}
+              {isCwg && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full mb-1">
+                  <Users className="w-3 h-3" />
+                  CWG
+                </span>
+              )}
+              <div className="flex items-center gap-1.5">
+                <h3
+                  className={`font-semibold text-slate-900 text-sm leading-snug cursor-pointer transition-colors ${isCwg ? 'hover:text-teal-600' : 'hover:text-blue-600'}`}
+                  onClick={() => onView(currentSession.id)}
+                >
+                  {currentSession.name}
+                </h3>
+                {!isShared && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowEditModal(true); }}
+                    title="Edit session"
+                    className="p-0.5 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
               </div>
-            )}
-            {isCwg && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full mb-1">
-                <Users className="w-3 h-3" />
-                CWG
-              </span>
-            )}
-          <h3
-              className={`font-semibold text-slate-900 text-sm leading-snug cursor-pointer transition-colors ${isCwg ? 'hover:text-teal-600' : 'hover:text-blue-600'}`}
-              onClick={() => onView(session.id)}
-            >
-              {session.name}
-            </h3>
-          </div>
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 ${badgeClass}`}>
-            {badgeLabel}
-          </span>
-        </div>
-
-        {session.description && (
-          <p className="text-xs text-slate-500 mb-3 line-clamp-2">{session.description}</p>
-        )}
-
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
-          <CalendarDays className="w-3.5 h-3.5" />
-          <span>{isCwg ? 'Meeting Date' : 'Test Date'}: {formatDate(session.test_date)}</span>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Progress</span>
-            <span className="font-semibold text-slate-700">
-              {completedCount}/{totalCount} tasks
+            </div>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 ${badgeClass}`}>
+              {badgeLabel}
             </span>
           </div>
-          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                progress === 100
-                  ? 'bg-emerald-500'
-                  : isCwg
-                  ? progress > 50 ? 'bg-teal-500' : 'bg-teal-400'
-                  : progress > 50 ? 'bg-blue-500' : 'bg-blue-400'
-              }`}
-              style={{ width: `${progress}%` }}
-            />
+
+          {currentSession.description && (
+            <p className="text-xs text-slate-500 mb-3 line-clamp-2">{currentSession.description}</p>
+          )}
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
+            <CalendarDays className="w-3.5 h-3.5" />
+            <span>{isCwg ? 'Meeting Date' : 'Test Date'}: {formatDate(currentSession.test_date)}</span>
           </div>
-          <p className="text-xs text-slate-400">{progress}% complete</p>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Progress</span>
+              <span className="font-semibold text-slate-700">
+                {completedCount}/{totalCount} tasks
+              </span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  progress === 100
+                    ? 'bg-emerald-500'
+                    : isCwg
+                    ? progress > 50 ? 'bg-teal-500' : 'bg-teal-400'
+                    : progress > 50 ? 'bg-blue-500' : 'bg-blue-400'
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-400">{progress}% complete</p>
+          </div>
+        </div>
+
+        <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            {!isShared && (
+              <>
+                <button
+                  onClick={() => onArchive(currentSession.id)}
+                  title={showUnarchive ? 'Restore session' : 'Archive session'}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition-colors"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => onDelete(currentSession.id)}
+                  title="Delete session"
+                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => onView(currentSession.id)}
+            className="flex items-center gap-1.5 text-xs font-medium transition-colors text-blue-600 hover:text-blue-700"
+          >
+            View session
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
-      <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          {!isShared && (
-            <>
-              <button
-                onClick={() => onArchive(session.id)}
-                title={showUnarchive ? 'Restore session' : 'Archive session'}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition-colors"
-              >
-                <Archive className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => onDelete(session.id)}
-                title="Delete session"
-                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
-        </div>
-        <button
-          onClick={() => onView(session.id)}
-          className="flex items-center gap-1.5 text-xs font-medium transition-colors text-blue-600 hover:text-blue-700"
-        >
-          View session
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
+      {showEditModal && (
+        <CreateSessionModal
+          editSession={currentSession}
+          onClose={() => setShowEditModal(false)}
+          onCreated={handleUpdated}
+        />
+      )}
+    </>
   );
 }

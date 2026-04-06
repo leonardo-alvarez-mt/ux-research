@@ -42,6 +42,7 @@ import ShareModal from '../components/ShareModal';
 import DemoVideoBanner from '../components/DemoVideoBanner';
 import ReportSubmitModal from '../components/ReportSubmitModal';
 import CwgEmailPanel from '../components/CwgEmailPanel';
+import CreateSessionModal from '../components/CreateSessionModal';
 import { useAuth } from '../context/AuthContext';
 
 interface SessionDetailPageProps {
@@ -302,6 +303,7 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
   const [collaboratorRole, setCollaboratorRole] = useState<CollaboratorRole | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [cwgMeta, setCwgMeta] = useState<CwgSessionMeta | null>(null);
   const reportModalShownRef = useRef(false);
 
@@ -472,6 +474,15 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-xl font-bold text-slate-900">{session.name}</h1>
+                {canEdit && (
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    title="Edit session"
+                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {isCwg && (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
                     CWG
@@ -776,6 +787,17 @@ export default function SessionDetailPage({ sessionId, onBack }: SessionDetailPa
           onSubmitted={(reportUrl, reportType) => {
             setSession((prev) => prev ? { ...prev, report_url: reportUrl, report_type: reportType } : prev);
             setShowReportModal(false);
+          }}
+        />
+      )}
+
+      {showEditModal && session && (
+        <CreateSessionModal
+          editSession={session}
+          onClose={() => setShowEditModal(false)}
+          onCreated={(updated) => {
+            setSession(updated);
+            setShowEditModal(false);
           }}
         />
       )}
