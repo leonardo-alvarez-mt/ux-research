@@ -6,9 +6,10 @@ const ALLOWED_DOMAIN = 'mitratech.com';
 
 interface LoginPageProps {
   onSwitchToSignUp: () => void;
+  onForgotPassword: () => void;
 }
 
-export default function LoginPage({ onSwitchToSignUp }: LoginPageProps) {
+export default function LoginPage({ onSwitchToSignUp, onForgotPassword }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -123,6 +124,7 @@ export default function LoginPage({ onSwitchToSignUp }: LoginPageProps) {
                 </label>
                 <button
                   type="button"
+                  onClick={onForgotPassword}
                   className="text-xs font-medium transition-colors hover:underline"
                   style={{ color: '#1a56db' }}
                 >

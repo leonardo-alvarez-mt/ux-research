@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import MySessionsPage from './pages/MySessionsPage';
 import ArchivePage from './pages/ArchivePage';
@@ -15,7 +17,7 @@ import SurveyResultsPage from './pages/SurveyResultsPage';
 import Sidebar, { MobileMenuButton } from './components/Sidebar';
 import { Loader2, CheckCircle } from 'lucide-react';
 
-type AuthView = 'login' | 'signup' | 'email-confirmed';
+type AuthView = 'login' | 'signup' | 'email-confirmed' | 'forgot-password' | 'reset-password';
 type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results';
 
 const OAUTH_PENDING_KEY = 'google_sheets_oauth_pending';
@@ -39,6 +41,21 @@ function consumeEmailConfirmationToken(): boolean {
       window.history.replaceState({}, '', clean.toString());
       return true;
     }
+  }
+  return false;
+}
+
+function consumePasswordRecoveryToken(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+  const type = params.get('type') || hashParams.get('type');
+
+  if (type === 'recovery') {
+    const clean = new URL(window.location.href);
+    clean.search = '';
+    clean.hash = '';
+    window.history.replaceState({}, '', clean.toString());
+    return true;
   }
   return false;
 }
@@ -127,9 +144,11 @@ function EmailConfirmedScreen({ onContinue }: { onContinue: () => void }) {
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const [authView, setAuthView] = useState<AuthView>(() =>
-    consumeEmailConfirmationToken() ? 'email-confirmed' : 'login'
-  );
+  const [authView, setAuthView] = useState<AuthView>(() => {
+    if (consumeEmailConfirmationToken()) return 'email-confirmed';
+    if (consumePasswordRecoveryToken()) return 'reset-password';
+    return 'login';
+  });
   const [appView, setAppView] = useState<AppView>('dashboard');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
@@ -207,14 +226,25 @@ function AppContent() {
     );
   }
 
-  if (!user) {
+  if (!user || authView === 'reset-password') {
+    if (authView === 'reset-password') {
+      return <ResetPasswordPage onBackToLogin={() => setAuthView('login')} />;
+    }
     if (authView === 'email-confirmed') {
       return <EmailConfirmedScreen onContinue={() => setAuthView('login')} />;
     }
     if (authView === 'signup') {
       return <SignUpPage onSwitchToLogin={() => setAuthView('login')} />;
     }
-    return <LoginPage onSwitchToSignUp={() => setAuthView('signup')} />;
+    if (authView === 'forgot-password') {
+      return <ForgotPasswordPage onBackToLogin={() => setAuthView('login')} />;
+    }
+    return (
+      <LoginPage
+        onSwitchToSignUp={() => setAuthView('signup')}
+        onForgotPassword={() => setAuthView('forgot-password')}
+      />
+    );
   }
 
   function handleViewSession(id: string) {
