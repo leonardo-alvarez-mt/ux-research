@@ -41,6 +41,20 @@ export async function fetchSessionById(id: string): Promise<Session | null> {
   return data;
 }
 
+export async function updateSession(
+  sessionId: string,
+  fields: { name: string; test_date: string; description?: string }
+): Promise<Session> {
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ name: fields.name, test_date: fields.test_date, description: fields.description ?? null })
+    .eq('id', sessionId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchTasksBySession(sessionId: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from('tasks')

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, CalendarDays, Loader2, AlertCircle } from 'lucide-react';
-import { createSessionWithTasks } from '../lib/data';
+import { createSessionWithTasks, updateSession } from '../lib/data';
 import { useAuth } from '../context/AuthContext';
 import type { Session, SessionType } from '../lib/types';
 
@@ -8,13 +8,15 @@ interface CreateSessionModalProps {
   onClose: () => void;
   onCreated: (session: Session) => void;
   sessionType?: SessionType;
+  editSession?: Session;
 }
 
-export default function CreateSessionModal({ onClose, onCreated, sessionType = 'usability_test' }: CreateSessionModalProps) {
+export default function CreateSessionModal({ onClose, onCreated, sessionType = 'usability_test', editSession }: CreateSessionModalProps) {
   const { user } = useAuth();
-  const [name, setName] = useState('');
-  const [testDate, setTestDate] = useState('');
-  const [description, setDescription] = useState('');
+  const isEdit = !!editSession;
+  const [name, setName] = useState(editSession?.name ?? '');
+  const [testDate, setTestDate] = useState(editSession?.test_date ?? '');
+  const [description, setDescription] = useState(editSession?.description ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,13 +29,22 @@ export default function CreateSessionModal({ onClose, onCreated, sessionType = '
     setLoading(true);
 
     try {
-      const session = await createSessionWithTasks(user.id, name.trim(), testDate, description.trim(), sessionType);
-      onCreated(session);
+      if (isEdit && editSession) {
+        const updated = await updateSession(editSession.id, {
+          name: name.trim(),
+          test_date: testDate,
+          description: description.trim(),
+        });
+        onCreated(updated);
+      } else {
+        const session = await createSessionWithTasks(user.id, name.trim(), testDate, description.trim(), sessionType);
+        onCreated(session);
+      }
     } catch (err: unknown) {
       const msg =
         (err as { message?: string })?.message ||
         (err as { error_description?: string })?.error_description ||
-        'Failed to create session. Please try signing out and back in.';
+        (isEdit ? 'Failed to update session.' : 'Failed to create session. Please try signing out and back in.');
       setError(msg);
     } finally {
       setLoading(false);
@@ -49,8 +60,12 @@ export default function CreateSessionModal({ onClose, onCreated, sessionType = '
               <CalendarDays className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-slate-900 font-semibold text-base">New Usability Session</h2>
-              <p className="text-slate-500 text-xs">Creates 40+ tasks automatically</p>
+              <h2 className="text-slate-900 font-semibold text-base">
+                {isEdit ? 'Edit Session' : 'New Usability Session'}
+              </h2>
+              <p className="text-slate-500 text-xs">
+                {isEdit ? 'Update the session name, date, or description' : 'Creates 40+ tasks automatically'}
+              </p>
             </div>
           </div>
           <button
@@ -86,19 +101,21 @@ export default function CreateSessionModal({ onClose, onCreated, sessionType = '
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Test Date <span className="text-red-500">*</span>
+              {editSession?.session_type === 'client_working_group' ? 'Meeting Date' : 'Test Date'} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
               value={testDate}
               onChange={(e) => setTestDate(e.target.value)}
-              min={today}
+              min={isEdit ? undefined : today}
               required
               className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-700"
             />
-            <p className="text-xs text-slate-400 mt-1">
-              Task due dates will be calculated automatically from this date.
-            </p>
+            {!isEdit && (
+              <p className="text-xs text-slate-400 mt-1">
+                Task due dates will be calculated automatically from this date.
+              </p>
+            )}
           </div>
 
           <div>
@@ -131,10 +148,10 @@ export default function CreateSessionModal({ onClose, onCreated, sessionType = '
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating tasks...
+                  {isEdit ? 'Saving...' : 'Generating tasks...'}
                 </>
               ) : (
-                'Create Session'
+                isEdit ? 'Save Changes' : 'Create Session'
               )}
             </button>
           </div>
