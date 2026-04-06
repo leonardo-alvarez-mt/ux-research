@@ -4,6 +4,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
 let _signupInProgress = false;
+let _passwordRecoveryActive = false;
 
 interface AuthContextValue {
   user: User | null;
@@ -28,7 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
         const { data: refreshed } = await supabase.auth.refreshSession();
-        const confirmedUser = refreshed.session?.user?.email_confirmed_at ? refreshed.session.user : null;
+        const isRecovery = refreshed.session?.user?.app_metadata?.recovery === true ||
+          (refreshed.session?.user && !refreshed.session.user.email_confirmed_at && _passwordRecoveryActive);
+        const confirmedUser =
+          isRecovery || refreshed.session?.user?.email_confirmed_at
+            ? refreshed.session?.user ?? null
+            : null;
         if (!confirmedUser) {
           await supabase.auth.signOut();
           setSession(null);
@@ -45,6 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        _passwordRecoveryActive = true;
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        return;
+      }
       if (_signupInProgress) {
         _signupInProgress = false;
         return;
@@ -55,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })();
         return;
       }
+      _passwordRecoveryActive = false;
       setSession(newSession);
       setUser(newSession?.user ?? null);
     });

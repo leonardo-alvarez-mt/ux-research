@@ -166,6 +166,15 @@ function AppContent() {
   }, [authView]);
 
   useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthView('reset-password');
+      }
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     const pending = consumeOAuthCallbackParams();
     if (pending) {
       setOauthPending(pending);
