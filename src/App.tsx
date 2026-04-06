@@ -45,19 +45,11 @@ function consumeEmailConfirmationToken(): boolean {
   return false;
 }
 
-function consumePasswordRecoveryToken(): boolean {
-  const params = new URLSearchParams(window.location.search);
+function detectPasswordRecovery(): boolean {
   const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-  const type = params.get('type') || hashParams.get('type');
-
-  if (type === 'recovery') {
-    const clean = new URL(window.location.href);
-    clean.search = '';
-    clean.hash = '';
-    window.history.replaceState({}, '', clean.toString());
-    return true;
-  }
-  return false;
+  const type = hashParams.get('type');
+  console.log('[App] detectPasswordRecovery — hash type:', type, 'full hash:', window.location.hash);
+  return type === 'recovery';
 }
 
 function getPathTokens(): { shareToken: string | null; surveyToken: string | null } {
@@ -146,7 +138,7 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [authView, setAuthView] = useState<AuthView>(() => {
     if (consumeEmailConfirmationToken()) return 'email-confirmed';
-    if (consumePasswordRecoveryToken()) return 'reset-password';
+    if (detectPasswordRecovery()) return 'reset-password';
     return 'login';
   });
   const [appView, setAppView] = useState<AppView>('dashboard');
@@ -166,8 +158,10 @@ function AppContent() {
   }, [authView]);
 
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[App] onAuthStateChange event:', event, 'session user:', session?.user?.email ?? null);
       if (event === 'PASSWORD_RECOVERY') {
+        console.log('[App] PASSWORD_RECOVERY received — showing reset-password view');
         setAuthView('reset-password');
       }
     });

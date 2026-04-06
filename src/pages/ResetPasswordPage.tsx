@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -15,6 +15,12 @@ export default function ResetPasswordPage({ onBackToLogin }: ResetPasswordPagePr
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log('[ResetPassword] getSession on mount — session:', data.session?.user?.email ?? null, 'error:', error?.message ?? null);
+    });
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -30,7 +36,9 @@ export default function ResetPasswordPage({ onBackToLogin }: ResetPasswordPagePr
     }
 
     setLoading(true);
+    console.log('[ResetPassword] Calling updateUser...');
     const { error: updateError } = await supabase.auth.updateUser({ password });
+    console.log('[ResetPassword] updateUser result — error:', updateError?.message ?? null);
     setLoading(false);
 
     if (updateError) {

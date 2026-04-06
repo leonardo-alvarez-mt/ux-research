@@ -25,7 +25,8 @@ export default function ForgotPasswordPage({ onBackToLogin }: ForgotPasswordPage
     }
 
     setLoading(true);
-    const redirectTo = `${window.location.origin}/?type=recovery`;
+    const redirectTo = `${window.location.origin}/`;
+    console.log('[ForgotPassword] Sending reset email to:', email, 'redirectTo:', redirectTo);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     setLoading(false);
 

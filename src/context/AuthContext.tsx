@@ -4,7 +4,6 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
 let _signupInProgress = false;
-let _passwordRecoveryActive = false;
 
 interface AuthContextValue {
   user: User | null;
@@ -26,50 +25,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        const isRecovery = refreshed.session?.user?.app_metadata?.recovery === true ||
-          (refreshed.session?.user && !refreshed.session.user.email_confirmed_at && _passwordRecoveryActive);
-        const confirmedUser =
-          isRecovery || refreshed.session?.user?.email_confirmed_at
-            ? refreshed.session?.user ?? null
-            : null;
-        if (!confirmedUser) {
-          await supabase.auth.signOut();
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log('[AuthContext] onAuthStateChange event:', event, 'user:', newSession?.user?.email ?? null, 'email_confirmed_at:', newSession?.user?.email_confirmed_at ?? null);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('[AuthContext] PASSWORD_RECOVERY — setting session for password reset');
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION') {
+        console.log('[AuthContext] INITIAL_SESSION — using session from listener instead of getSession');
+        if (newSession?.user) {
+          const emailConfirmed = !!newSession.user.email_confirmed_at;
+          console.log('[AuthContext] INITIAL_SESSION emailConfirmed:', emailConfirmed);
+          if (!emailConfirmed && !_signupInProgress) {
+            console.log('[AuthContext] INITIAL_SESSION — unconfirmed email, signing out');
+            supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+          } else {
+            setSession(newSession);
+            setUser(newSession.user);
+          }
+        } else {
           setSession(null);
           setUser(null);
-        } else {
-          setSession(refreshed.session);
-          setUser(confirmedUser);
         }
-      } else {
-        setSession(null);
-        setUser(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        _passwordRecoveryActive = true;
+      if (event === 'SIGNED_IN') {
+        if (_signupInProgress) {
+          console.log('[AuthContext] SIGNED_IN during signup flow — skipping');
+          _signupInProgress = false;
+          return;
+        }
+        if (newSession?.user && !newSession.user.email_confirmed_at) {
+          console.log('[AuthContext] SIGNED_IN — unconfirmed email, signing out');
+          supabase.auth.signOut();
+          return;
+        }
+        console.log('[AuthContext] SIGNED_IN — setting session');
         setSession(newSession);
         setUser(newSession?.user ?? null);
         return;
       }
-      if (_signupInProgress) {
-        _signupInProgress = false;
+
+      if (event === 'SIGNED_OUT') {
+        console.log('[AuthContext] SIGNED_OUT — clearing session');
+        setSession(null);
+        setUser(null);
         return;
       }
-      if (newSession?.user && !newSession.user.email_confirmed_at) {
-        (async () => {
-          await supabase.auth.signOut();
-        })();
+
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('[AuthContext] TOKEN_REFRESHED — updating session');
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
         return;
       }
-      _passwordRecoveryActive = false;
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
     });
 
     return () => listener.subscription.unsubscribe();
@@ -88,4 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+export function setSignupInProgress(value: boolean) {
+  _signupInProgress = value;
 }
