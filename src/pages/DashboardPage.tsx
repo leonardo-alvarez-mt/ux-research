@@ -108,8 +108,7 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
 
   function handleCreated(session: Session) {
     setShowModal(false);
-    setSessions((prev) => [{ session, completedCount: 0, totalCount: 0 }, ...prev]);
-    loadAll();
+    onViewSession(session.id);
   }
 
   async function handleMenuSelect(type: SessionType) {
@@ -304,8 +303,7 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
           onClose={() => setShowCwgModal(false)}
           onCreated={(session) => {
             setShowCwgModal(false);
-            setSessions((prev) => [{ session, completedCount: 0, totalCount: 0 }, ...prev]);
-            loadAll();
+            onViewSession(session.id);
           }}
         />
       )}
