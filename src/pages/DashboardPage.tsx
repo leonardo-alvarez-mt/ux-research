@@ -78,7 +78,15 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
         })
       );
 
-      setSessions(withStats);
+      const sorted = [...withStats].sort((a, b) => {
+        const aCompleted = a.totalCount > 0 && a.completedCount === a.totalCount;
+        const bCompleted = b.totalCount > 0 && b.completedCount === b.totalCount;
+        if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
+        const aDate = new Date(a.session.test_date).getTime();
+        const bDate = new Date(b.session.test_date).getTime();
+        return aCompleted ? bDate - aDate : aDate - bDate;
+      });
+      setSessions(sorted);
       setSharedSessions(shared);
       setSurveys(surveyList);
       setSurveyResponseCounts(responseCounts);
