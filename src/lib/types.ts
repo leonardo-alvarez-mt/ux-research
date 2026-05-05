@@ -139,6 +139,7 @@ export interface Database {
           notes: string;
           product: string;
           customer_type: string;
+          participant_scope: string;
           created_at: string;
         };
         Insert: {
@@ -151,6 +152,7 @@ export interface Database {
           notes?: string;
           product?: string;
           customer_type?: string;
+          participant_scope?: string;
           created_at?: string;
         };
         Update: {
@@ -161,6 +163,7 @@ export interface Database {
           notes?: string;
           product?: string;
           customer_type?: string;
+          participant_scope?: string;
         };
       };
       session_participants: {

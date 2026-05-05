@@ -1,25 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Search,
-  UserPlus,
-  Users,
-  Loader2,
-  AlertCircle,
-  ChevronRight,
-  X,
-  Edit2,
-  Trash2,
-  Mail,
-  Building2,
-  UserCheck,
-  FileText,
-  Calendar,
-  Clock,
-  Check,
-  AlertTriangle,
-  Package,
-  Star,
-} from 'lucide-react';
+import { Search, UserPlus, Users, Loader2, AlertCircle, ChevronRight, X, CreditCard as Edit2, Trash2, Mail, Building2, UserCheck, FileText, Calendar, Clock, Check, AlertTriangle, Package, Star, Briefcase, Users as Users2 } from 'lucide-react';
 import {
   fetchParticipantsWithSessionCount,
   createParticipant,
@@ -31,6 +11,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import type { ParticipantWithSessionCount, ParticipantSessionEntry } from '../lib/types';
 import { STATUS_STYLES } from '../lib/types';
+
+type ParticipantScope = 'external' | 'internal';
 
 function getInitials(name: string) {
   return name
@@ -73,6 +55,7 @@ interface ParticipantFormState {
   product: string;
   customer_type: string;
   notes: string;
+  department: string;
 }
 
 const emptyForm: ParticipantFormState = {
@@ -83,6 +66,7 @@ const emptyForm: ParticipantFormState = {
   product: '',
   customer_type: 'new',
   notes: '',
+  department: '',
 };
 
 function participantToForm(p: ParticipantWithSessionCount): ParticipantFormState {
@@ -94,6 +78,7 @@ function participantToForm(p: ParticipantWithSessionCount): ParticipantFormState
     product: p.product,
     customer_type: p.customer_type || 'new',
     notes: p.notes,
+    department: p.client,
   };
 }
 
@@ -153,6 +138,9 @@ function SlideOverPanel({
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [engagementUpdating, setEngagementUpdating] = useState<string | null>(null);
 
+  const scope = (participant?.participant_scope ?? 'external') as ParticipantScope;
+  const isInternal = scope === 'internal';
+
   useEffect(() => {
     if (participant) {
       setForm(participantToForm(participant));
@@ -172,7 +160,26 @@ function SlideOverPanel({
     setError('');
     setSaving(true);
     try {
-      const updated = await updateParticipant(participant.id, form);
+      const fields = isInternal
+        ? {
+            name: form.name,
+            email: form.email,
+            client: form.department,
+            account_manager: form.account_manager,
+            product: form.product,
+            customer_type: participant.customer_type,
+            notes: form.notes,
+          }
+        : {
+            name: form.name,
+            email: form.email,
+            client: form.client,
+            account_manager: form.account_manager,
+            product: form.product,
+            customer_type: form.customer_type,
+            notes: form.notes,
+          };
+      const updated = await updateParticipant(participant.id, fields);
       onUpdated({ ...updated, session_count: participant.session_count });
       onSetPanelView('detail');
     } catch (err) {
@@ -219,11 +226,16 @@ function SlideOverPanel({
       <aside className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-40 flex flex-col overflow-hidden animate-slide-in-right">
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-blue-700 font-bold text-sm">{getInitials(participant.name)}</span>
+            <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${isInternal ? 'bg-teal-100' : 'bg-blue-100'}`}>
+              <span className={`font-bold text-sm ${isInternal ? 'text-teal-700' : 'text-blue-700'}`}>{getInitials(participant.name)}</span>
             </div>
             <div className="min-w-0">
-              <h2 className="text-slate-900 font-semibold text-base truncate">{participant.name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-slate-900 font-semibold text-base truncate">{participant.name}</h2>
+                <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${isInternal ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {isInternal ? 'Internal' : 'External'}
+                </span>
+              </div>
               <p className="text-slate-500 text-xs truncate">{participant.email || 'No email'}</p>
             </div>
           </div>
@@ -259,23 +271,49 @@ function SlideOverPanel({
                     </div>
                   </div>
                 )}
-                {participant.client && (
-                  <div className="flex items-start gap-3">
-                    <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-500">Client</p>
-                      <p className="text-sm text-slate-800 font-medium">{participant.client}</p>
-                    </div>
-                  </div>
-                )}
-                {participant.account_manager && (
-                  <div className="flex items-start gap-3">
-                    <UserCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-500">Account Manager</p>
-                      <p className="text-sm text-slate-800 font-medium">{participant.account_manager}</p>
-                    </div>
-                  </div>
+
+                {isInternal ? (
+                  <>
+                    {participant.client && (
+                      <div className="flex items-start gap-3">
+                        <Briefcase className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-500">Department</p>
+                          <p className="text-sm text-slate-800 font-medium">{participant.client}</p>
+                        </div>
+                      </div>
+                    )}
+                    {participant.account_manager && (
+                      <div className="flex items-start gap-3">
+                        <UserCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-500">Manager</p>
+                          <p className="text-sm text-slate-800 font-medium">{participant.account_manager}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {participant.client && (
+                      <div className="flex items-start gap-3">
+                        <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-500">Client</p>
+                          <p className="text-sm text-slate-800 font-medium">{participant.client}</p>
+                        </div>
+                      </div>
+                    )}
+                    {participant.account_manager && (
+                      <div className="flex items-start gap-3">
+                        <UserCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-500">Account Manager</p>
+                          <p className="text-sm text-slate-800 font-medium">{participant.account_manager}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="flex items-start gap-3">
@@ -286,21 +324,23 @@ function SlideOverPanel({
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <Star className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-slate-500">Customer Type</p>
-                    <span
-                      className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full mt-0.5 ${
-                        (participant.customer_type || 'new') === 'established'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                      }`}
-                    >
-                      {customerLabel}
-                    </span>
+                {!isInternal && (
+                  <div className="flex items-start gap-3">
+                    <Star className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-slate-500">Customer Type</p>
+                      <span
+                        className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full mt-0.5 ${
+                          (participant.customer_type || 'new') === 'established'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {customerLabel}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {participant.notes && (
                   <div className="flex items-start gap-3">
@@ -439,26 +479,49 @@ function SlideOverPanel({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Client</label>
-                  <input
-                    type="text"
-                    value={form.client}
-                    onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              {isInternal ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Department</label>
+                    <input
+                      type="text"
+                      value={form.department}
+                      onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Manager</label>
+                    <input
+                      type="text"
+                      value={form.account_manager}
+                      onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Account Manager</label>
-                  <input
-                    type="text"
-                    value={form.account_manager}
-                    onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Client</label>
+                    <input
+                      type="text"
+                      value={form.client}
+                      onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Account Manager</label>
+                    <input
+                      type="text"
+                      value={form.account_manager}
+                      onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">Product</label>
@@ -471,27 +534,29 @@ function SlideOverPanel({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Customer Type</label>
-                <div className="flex gap-2">
-                  {CUSTOMER_TYPES.map((ct) => (
-                    <button
-                      key={ct.value}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, customer_type: ct.value }))}
-                      className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all ${
-                        form.customer_type === ct.value
-                          ? ct.value === 'established'
-                            ? 'bg-blue-600 border-blue-600 text-white'
-                            : 'bg-emerald-600 border-emerald-600 text-white'
-                          : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                      }`}
-                    >
-                      {ct.label}
-                    </button>
-                  ))}
+              {!isInternal && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Customer Type</label>
+                  <div className="flex gap-2">
+                    {CUSTOMER_TYPES.map((ct) => (
+                      <button
+                        key={ct.value}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, customer_type: ct.value }))}
+                        className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                          form.customer_type === ct.value
+                            ? ct.value === 'established'
+                              ? 'bg-blue-600 border-blue-600 text-white'
+                              : 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        {ct.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">Notes</label>
@@ -582,21 +647,45 @@ function SlideOverPanel({
 
 interface CreatePanelProps {
   userId: string;
+  scope: ParticipantScope;
   onClose: () => void;
   onCreated: (p: ParticipantWithSessionCount) => void;
 }
 
-function CreatePanel({ userId, onClose, onCreated }: CreatePanelProps) {
+function CreatePanel({ userId, scope, onClose, onCreated }: CreatePanelProps) {
   const [form, setForm] = useState<ParticipantFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const isInternal = scope === 'internal';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setSaving(true);
     try {
-      const created = await createParticipant(userId, form);
+      const fields = isInternal
+        ? {
+            name: form.name,
+            email: form.email,
+            client: form.department,
+            account_manager: form.account_manager,
+            product: form.product,
+            customer_type: 'established',
+            notes: form.notes,
+            participant_scope: 'internal',
+          }
+        : {
+            name: form.name,
+            email: form.email,
+            client: form.client,
+            account_manager: form.account_manager,
+            product: form.product,
+            customer_type: form.customer_type,
+            notes: form.notes,
+            participant_scope: 'external',
+          };
+      const created = await createParticipant(userId, fields);
       onCreated({ ...created, session_count: 0 });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create participant.');
@@ -611,12 +700,19 @@ function CreatePanel({ userId, onClose, onCreated }: CreatePanelProps) {
       <aside className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-40 flex flex-col overflow-hidden animate-slide-in-right">
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-blue-600" />
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isInternal ? 'bg-teal-100' : 'bg-blue-100'}`}>
+              <UserPlus className={`w-5 h-5 ${isInternal ? 'text-teal-600' : 'text-blue-600'}`} />
             </div>
             <div>
               <h2 className="text-slate-900 font-semibold text-base">New Participant</h2>
-              <p className="text-slate-500 text-xs">Add to your roster</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isInternal ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {isInternal ? 'Internal' : 'External'}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {isInternal ? 'Mitratech team member' : 'Customer participant'}
+                </span>
+              </div>
             </div>
           </div>
           <button
@@ -657,33 +753,58 @@ function CreatePanel({ userId, onClose, onCreated }: CreatePanelProps) {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="ablazevic@example.com"
+                placeholder={isInternal ? 'name@mitratech.com' : 'ablazevic@example.com'}
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Client</label>
-                <input
-                  type="text"
-                  value={form.client}
-                  onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
-                  placeholder="Beal Service Corp."
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
-                />
+            {isInternal ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Department</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                    placeholder="e.g. Product, Design..."
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Manager</label>
+                  <input
+                    type="text"
+                    value={form.account_manager}
+                    onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
+                    placeholder="Manager name"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Account Manager</label>
-                <input
-                  type="text"
-                  value={form.account_manager}
-                  onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
-                  placeholder="Kristyn Lashbrook"
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
-                />
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Client</label>
+                  <input
+                    type="text"
+                    value={form.client}
+                    onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
+                    placeholder="Beal Service Corp."
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Account Manager</label>
+                  <input
+                    type="text"
+                    value={form.account_manager}
+                    onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
+                    placeholder="Kristyn Lashbrook"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1.5">Product</label>
@@ -696,27 +817,29 @@ function CreatePanel({ userId, onClose, onCreated }: CreatePanelProps) {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1.5">Customer Type</label>
-              <div className="flex gap-2">
-                {CUSTOMER_TYPES.map((ct) => (
-                  <button
-                    key={ct.value}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, customer_type: ct.value }))}
-                    className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all ${
-                      form.customer_type === ct.value
-                        ? ct.value === 'established'
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'bg-emerald-600 border-emerald-600 text-white'
-                        : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
-                  >
-                    {ct.label}
-                  </button>
-                ))}
+            {!isInternal && (
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Customer Type</label>
+                <div className="flex gap-2">
+                  {CUSTOMER_TYPES.map((ct) => (
+                    <button
+                      key={ct.value}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, customer_type: ct.value }))}
+                      className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                        form.customer_type === ct.value
+                          ? ct.value === 'established'
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'bg-emerald-600 border-emerald-600 text-white'
+                          : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      {ct.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1.5">Notes</label>
@@ -761,7 +884,9 @@ function CreatePanel({ userId, onClose, onCreated }: CreatePanelProps) {
 
 export default function ParticipantsPage() {
   const { user } = useAuth();
-  const [participants, setParticipants] = useState<ParticipantWithSessionCount[]>([]);
+  const [activeTab, setActiveTab] = useState<ParticipantScope>('external');
+  const [externalParticipants, setExternalParticipants] = useState<ParticipantWithSessionCount[]>([]);
+  const [internalParticipants, setInternalParticipants] = useState<ParticipantWithSessionCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -769,13 +894,20 @@ export default function ParticipantsPage() {
   const [panelView, setPanelView] = useState<PanelView>('detail');
   const [showCreate, setShowCreate] = useState(false);
 
+  const participants = activeTab === 'external' ? externalParticipants : internalParticipants;
+  const isInternal = activeTab === 'internal';
+
   const loadParticipants = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError('');
     try {
-      const data = await fetchParticipantsWithSessionCount(user.id);
-      setParticipants(data);
+      const [external, internal] = await Promise.all([
+        fetchParticipantsWithSessionCount(user.id, 'external'),
+        fetchParticipantsWithSessionCount(user.id, 'internal'),
+      ]);
+      setExternalParticipants(external);
+      setInternalParticipants(internal);
     } catch {
       setError('Failed to load participants. Please try refreshing.');
     } finally {
@@ -809,24 +941,43 @@ export default function ParticipantsPage() {
   }
 
   function handleUpdated(updated: ParticipantWithSessionCount) {
-    setParticipants((prev) =>
-      prev.map((p) => (p.id === updated.id ? updated : p))
-    );
+    if (activeTab === 'external') {
+      setExternalParticipants((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } else {
+      setInternalParticipants((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    }
     setSelectedParticipant(updated);
   }
 
   function handleDeleted(id: string) {
-    setParticipants((prev) => prev.filter((p) => p.id !== id));
+    if (activeTab === 'external') {
+      setExternalParticipants((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      setInternalParticipants((prev) => prev.filter((p) => p.id !== id));
+    }
     setSelectedParticipant(null);
   }
 
   function handleCreated(created: ParticipantWithSessionCount) {
-    setParticipants((prev) =>
-      [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
-    );
+    if (activeTab === 'external') {
+      setExternalParticipants((prev) =>
+        [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+      );
+    } else {
+      setInternalParticipants((prev) =>
+        [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+      );
+    }
     setShowCreate(false);
     setSelectedParticipant(created);
     setPanelView('detail');
+  }
+
+  function handleTabChange(tab: ParticipantScope) {
+    setActiveTab(tab);
+    setSearch('');
+    setSelectedParticipant(null);
+    setShowCreate(false);
   }
 
   return (
@@ -836,7 +987,7 @@ export default function ParticipantsPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Participant Roster</h1>
             <p className="text-slate-500 text-sm mt-0.5">
-              {participants.length} participant{participants.length !== 1 ? 's' : ''} in your roster
+              {participants.length} {activeTab} participant{participants.length !== 1 ? 's' : ''} in your roster
             </p>
           </div>
           <button
@@ -848,13 +999,51 @@ export default function ParticipantsPage() {
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-5">
+          <button
+            onClick={() => handleTabChange('external')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'external'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            External
+            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+              activeTab === 'external' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'
+            }`}>
+              {externalParticipants.length}
+            </span>
+          </button>
+          <button
+            onClick={() => handleTabChange('internal')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'internal'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Users2 className="w-4 h-4" />
+            Internal
+            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+              activeTab === 'internal' ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-500'
+            }`}>
+              {internalParticipants.length}
+            </span>
+          </button>
+        </div>
+
         <div className="relative mb-5">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, client, account manager, or product..."
+            placeholder={isInternal
+              ? 'Search by name, email, department, or product...'
+              : 'Search by name, email, client, account manager, or product...'}
             className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm placeholder:text-slate-400"
           />
         </div>
@@ -872,19 +1061,26 @@ export default function ParticipantsPage() {
           </div>
         ) : participants.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-blue-400" />
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${isInternal ? 'bg-teal-50' : 'bg-blue-50'}`}>
+              {isInternal
+                ? <Users2 className="w-8 h-8 text-teal-400" />
+                : <Users className="w-8 h-8 text-blue-400" />
+              }
             </div>
-            <h3 className="text-slate-800 font-semibold text-lg mb-1">No participants yet</h3>
+            <h3 className="text-slate-800 font-semibold text-lg mb-1">
+              No {activeTab} participants yet
+            </h3>
             <p className="text-slate-400 text-sm mb-6 max-w-xs">
-              Build your roster by adding participants. They can then be assigned to test sessions.
+              {isInternal
+                ? 'Add internal team members to include them in research sessions.'
+                : 'Build your roster by adding customer participants. They can then be assigned to test sessions.'}
             </p>
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
             >
               <UserPlus className="w-4 h-4" />
-              Add First Participant
+              Add {isInternal ? 'Internal' : 'External'} Participant
             </button>
           </div>
         ) : filtered.length === 0 ? (
@@ -897,9 +1093,13 @@ export default function ParticipantsPage() {
             <div className="hidden lg:grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto_auto] items-center px-5 py-3 border-b border-slate-100 bg-slate-50/80">
               <div className="w-9" />
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pl-3">Name</p>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Client</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                {isInternal ? 'Department' : 'Client'}
+              </p>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Product</p>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Type</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                {isInternal ? 'Manager' : 'Type'}
+              </p>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">Sessions</p>
               <div className="w-6" />
             </div>
@@ -915,8 +1115,8 @@ export default function ParticipantsPage() {
                         selectedParticipant?.id === p.id ? 'bg-blue-50' : ''
                       }`}
                     >
-                      <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                        <span className="text-blue-700 font-bold text-xs">{getInitials(p.name)}</span>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isInternal ? 'bg-teal-100' : 'bg-blue-100'}`}>
+                        <span className={`font-bold text-xs ${isInternal ? 'text-teal-700' : 'text-blue-700'}`}>{getInitials(p.name)}</span>
                       </div>
 
                       <div className="flex-1 min-w-0 lg:grid lg:grid-cols-4 lg:gap-4 lg:items-center">
@@ -927,15 +1127,19 @@ export default function ParticipantsPage() {
                         <p className="hidden lg:block text-sm text-slate-600 truncate">{p.client || '—'}</p>
                         <p className="hidden lg:block text-sm text-slate-600 truncate">{p.product || '—'}</p>
                         <div className="hidden lg:flex">
-                          <span
-                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              (p.customer_type || 'new') === 'established'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-emerald-100 text-emerald-700'
-                            }`}
-                          >
-                            {custLabel}
-                          </span>
+                          {isInternal ? (
+                            <p className="text-sm text-slate-600 truncate">{p.account_manager || '—'}</p>
+                          ) : (
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                (p.customer_type || 'new') === 'established'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {custLabel}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -971,6 +1175,7 @@ export default function ParticipantsPage() {
       {showCreate && user && (
         <CreatePanel
           userId={user.id}
+          scope={activeTab}
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
         />

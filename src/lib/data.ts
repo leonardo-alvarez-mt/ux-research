@@ -233,13 +233,18 @@ export async function fetchParticipants(userId: string): Promise<Participant[]> 
 }
 
 export async function fetchParticipantsWithSessionCount(
-  userId: string
+  userId: string,
+  scope?: 'external' | 'internal'
 ): Promise<ParticipantWithSessionCount[]> {
-  const { data: participants, error } = await supabase
+  let query = supabase
     .from('participants')
     .select('*, session_participants(count)')
     .eq('user_id', userId)
     .order('name', { ascending: true });
+  if (scope) {
+    query = query.eq('participant_scope', scope);
+  }
+  const { data: participants, error } = await query;
   if (error) throw error;
   return (participants ?? []).map((p: Participant & { session_participants: { count: number }[] }) => ({
     ...p,
@@ -249,7 +254,7 @@ export async function fetchParticipantsWithSessionCount(
 
 export async function updateParticipant(
   participantId: string,
-  fields: { name: string; email: string; client: string; account_manager: string; notes: string; product: string; customer_type: string }
+  fields: { name: string; email: string; client: string; account_manager: string; notes: string; product: string; customer_type: string; participant_scope?: string }
 ): Promise<Participant> {
   const { data, error } = await supabase
     .from('participants')
@@ -306,7 +311,7 @@ export async function updateSessionEngagement(
 
 export async function createParticipant(
   userId: string,
-  fields: { name: string; email: string; client: string; account_manager: string; notes: string; product: string; customer_type: string }
+  fields: { name: string; email: string; client: string; account_manager: string; notes: string; product: string; customer_type: string; participant_scope: string }
 ): Promise<Participant> {
   const { data, error } = await supabase
     .from('participants')
