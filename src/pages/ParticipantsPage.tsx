@@ -278,7 +278,7 @@ function SlideOverPanel({
                       <div className="flex items-start gap-3">
                         <Briefcase className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                         <div>
-                          <p className="text-xs text-slate-500">Department</p>
+                          <p className="text-xs text-slate-500">Location</p>
                           <p className="text-sm text-slate-800 font-medium">{participant.client}</p>
                         </div>
                       </div>
@@ -287,7 +287,7 @@ function SlideOverPanel({
                       <div className="flex items-start gap-3">
                         <UserCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                         <div>
-                          <p className="text-xs text-slate-500">Manager</p>
+                          <p className="text-xs text-slate-500">Role</p>
                           <p className="text-sm text-slate-800 font-medium">{participant.account_manager}</p>
                         </div>
                       </div>
@@ -482,7 +482,7 @@ function SlideOverPanel({
               {isInternal ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Department</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Location</label>
                     <input
                       type="text"
                       value={form.department}
@@ -491,7 +491,7 @@ function SlideOverPanel({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Manager</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1.5">Role</label>
                     <input
                       type="text"
                       value={form.account_manager}
@@ -761,22 +761,22 @@ function CreatePanel({ userId, scope, onClose, onCreated }: CreatePanelProps) {
             {isInternal ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Department</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Location</label>
                   <input
                     type="text"
                     value={form.department}
                     onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-                    placeholder="e.g. Product, Design..."
+                    placeholder="e.g. Hyderabad India, Remote - US..."
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Manager</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Role</label>
                   <input
                     type="text"
                     value={form.account_manager}
                     onChange={(e) => setForm((f) => ({ ...f, account_manager: e.target.value }))}
-                    placeholder="Manager name"
+                    placeholder="e.g. Software Engineer III..."
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
                   />
                 </div>
@@ -1042,7 +1042,7 @@ export default function ParticipantsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={isInternal
-              ? 'Search by name, email, department, or product...'
+              ? 'Search by name, email, location, role, or product...'
               : 'Search by name, email, client, account manager, or product...'}
             className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm placeholder:text-slate-400"
           />
@@ -1094,11 +1094,11 @@ export default function ParticipantsPage() {
               <div className="w-9" />
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pl-3">Name</p>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                {isInternal ? 'Department' : 'Client'}
+                {isInternal ? 'Location' : 'Client'}
               </p>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Product</p>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                {isInternal ? 'Manager' : 'Type'}
+                {isInternal ? 'Role' : 'Type'}
               </p>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">Sessions</p>
               <div className="w-6" />
