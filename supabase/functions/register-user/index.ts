@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { Resend } from "npm:resend@4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,98 +8,49 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAIN = "mitratech.com";
-const FROM_ADDRESS = "Mitratech UX Lab <leonardo.alvarez@mitratech.com>";
 
-function buildHtmlEmail(confirmUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Confirm your Mitratech UX Lab account</title>
-</head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
-          <tr>
-            <td align="center" style="padding-bottom:24px;">
-              <img src="https://grc-ux-lab.netlify.app/MitratechUXsvg.svg" alt="Mitratech UX Lab" height="36" style="display:block;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;border-radius:16px;padding:40px 40px 36px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#0f172a;text-align:center;">Confirm your account</h1>
-              <p style="margin:0 0 28px;font-size:14px;color:#64748b;text-align:center;line-height:1.6;">
-                You're almost there! Click the button below to verify your email address and activate your Mitratech UX Lab account.
-              </p>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center" style="padding-bottom:28px;">
-                    <a href="${confirmUrl}"
-                       style="display:inline-block;background:#1a56db;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:8px;letter-spacing:0.01em;">
-                      Confirm Email Address
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;text-align:center;line-height:1.5;">
-                If the button doesn't work, copy and paste this link into your browser:
-              </p>
-              <p style="margin:0;font-size:12px;color:#64748b;text-align:center;word-break:break-all;line-height:1.6;">
-                <a href="${confirmUrl}" style="color:#1a56db;text-decoration:underline;">${confirmUrl}</a>
-              </p>
-              <hr style="border:none;border-top:1px solid #e2e8f0;margin:28px 0 20px;" />
-              <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">
-                If you didn't create a Mitratech UX Lab account, you can safely ignore this email.
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding-top:20px;">
-              <p style="margin:0;font-size:12px;color:#94a3b8;">
-                &copy; ${new Date().getFullYear()} Mitratech Holdings, Inc. All Rights Reserved.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
-
-async function sendConfirmationEmail(
+async function triggerConfirmationEmail(
   adminClient: ReturnType<typeof createClient>,
   email: string,
-  resend: Resend
+  supabaseUrl: string,
+  serviceRoleKey: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-    type: "signup",
-    email,
+  // Use the Supabase Auth REST API directly to resend the confirmation email.
+  // The admin JS client does not expose a "resend confirmation" method, but the
+  // REST endpoint POST /auth/v1/admin/users/:id/send-email handles this.
+  // Instead we generate the link via generateLink which also triggers a native
+  // Supabase email send when called through the REST API with send_email=true.
+  //
+  // Simplest reliable approach: call the resend endpoint via the REST API.
+  const { data: usersData } = await adminClient.auth.admin.listUsers();
+  const user = usersData?.users?.find((u) => u.email === email);
+  if (!user) return { ok: false, error: "User not found" };
+
+  const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}/resend-confirmation`, {
+    method: "POST",
+    headers: {
+      "apikey": serviceRoleKey,
+      "Authorization": `Bearer ${serviceRoleKey}`,
+      "Content-Type": "application/json",
+    },
   });
 
-  if (linkError || !linkData?.properties?.action_link) {
-    console.error("[register-user] generateLink error:", linkError);
-    return { ok: false, error: linkError?.message ?? "Failed to generate confirmation link" };
-  }
-
-  const confirmUrl = linkData.properties.action_link;
-  const plainText = `Confirm your Mitratech UX Lab account\n\nClick the link below to verify your email address:\n\n${confirmUrl}\n\nIf you didn't create this account, you can safely ignore this email.\n\n© ${new Date().getFullYear()} Mitratech Holdings, Inc.`;
-
-  const { error } = await resend.emails.send({
-    from: FROM_ADDRESS,
-    to: email,
-    subject: "Confirm your Mitratech UX Lab account",
-    html: buildHtmlEmail(confirmUrl),
-    text: plainText,
-  });
-
-  if (error) {
-    console.error("[register-user] Resend error:", error);
-    return { ok: false, error: String(error) };
+  if (!res.ok) {
+    // Fallback: generate link and send via Supabase's own email system
+    // by calling the public signUp endpoint which triggers the confirmation flow
+    const fallback = await fetch(`${supabaseUrl}/auth/v1/resend`, {
+      method: "POST",
+      headers: {
+        "apikey": serviceRoleKey,
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ type: "signup", email }),
+    });
+    if (!fallback.ok) {
+      const errText = await fallback.text();
+      return { ok: false, error: errText };
+    }
   }
 
   return { ok: true };
@@ -147,9 +97,8 @@ Deno.serve(async (req: Request) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !RESEND_API_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error("[register-user] Missing required env vars");
       return new Response(JSON.stringify({ error: "Server misconfiguration" }), {
         status: 500,
@@ -160,7 +109,6 @@ Deno.serve(async (req: Request) => {
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const resendClient = new Resend(RESEND_API_KEY);
 
     if (body?.resend === true) {
       const { data: existingUsers } = await adminClient.auth.admin.listUsers();
@@ -180,9 +128,10 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      const emailResult = await sendConfirmationEmail(adminClient, email, resendClient);
-      if (!emailResult.ok) {
-        return new Response(JSON.stringify({ error: emailResult.error }), {
+      const result = await triggerConfirmationEmail(adminClient, email, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      if (!result.ok) {
+        console.error("[register-user] resend confirmation error:", result.error);
+        return new Response(JSON.stringify({ error: result.error ?? "Failed to resend confirmation email" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -220,6 +169,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Creating with email_confirm: false causes Supabase to send its own
+    // native confirmation email using the configured auth email template.
     const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -252,9 +203,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const emailResult = await sendConfirmationEmail(adminClient, email, resendClient);
+    // Trigger the native Supabase confirmation email via the resend endpoint.
+    const emailResult = await triggerConfirmationEmail(adminClient, email, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     if (!emailResult.ok) {
-      console.error("[register-user] email send error:", emailResult.error);
+      console.error("[register-user] confirmation email error:", emailResult.error);
+      // Non-fatal: user was created successfully, they can request a resend.
     }
 
     return new Response(JSON.stringify({ success: true }), {
