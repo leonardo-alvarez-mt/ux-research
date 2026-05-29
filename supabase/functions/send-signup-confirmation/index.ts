@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const FROM_ADDRESS = "Mitratech UX Lab <onboarding@resend.dev>";
+const FROM_ADDRESS = "Mitratech UX Lab <leonardo.alvarez@mitratech.com>";
 
 function buildHtmlEmail(confirmUrl: string): string {
   return `<!DOCTYPE html>

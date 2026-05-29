@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAIN = "mitratech.com";
-const FROM_ADDRESS = "Mitratech UX Lab <onboarding@resend.dev>";
+const FROM_ADDRESS = "Mitratech UX Lab <leonardo.alvarez@mitratech.com>";
 
 function buildHtmlEmail(confirmUrl: string): string {
   return `<!DOCTYPE html>
