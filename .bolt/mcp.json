@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "mintlify_mcp": {
+      "enabled": true
+    }
+  }
+}
