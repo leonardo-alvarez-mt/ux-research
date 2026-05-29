@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { Resend } from "npm:resend@4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,43 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-function encodeBase64Utf8(input: string): string {
-  const bytes = new TextEncoder().encode(input);
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary);
-}
-
-function base64UrlEncodeUtf8(input: string): string {
-  return encodeBase64Utf8(input)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function buildMimeEmail(to: string, subject: string, plain: string, html: string): string {
-  const boundary = "----=_Part_mitratech_" + Math.random().toString(36).slice(2);
-  const lines: string[] = [];
-  lines.push("MIME-Version: 1.0");
-  lines.push(`To: ${to}`);
-  lines.push(`Subject: ${subject}`);
-  lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
-  lines.push("");
-  lines.push(`--${boundary}`);
-  lines.push("Content-Type: text/plain; charset=UTF-8");
-  lines.push("Content-Transfer-Encoding: base64");
-  lines.push("");
-  lines.push(encodeBase64Utf8(plain));
-  lines.push("");
-  lines.push(`--${boundary}`);
-  lines.push("Content-Type: text/html; charset=UTF-8");
-  lines.push("Content-Transfer-Encoding: base64");
-  lines.push("");
-  lines.push(encodeBase64Utf8(html));
-  lines.push("");
-  lines.push(`--${boundary}--`);
-  return lines.join("\r\n");
-}
+const FROM_ADDRESS = "Mitratech UX Lab <onboarding@resend.dev>";
 
 function buildHtmlEmail(confirmUrl: string): string {
   return `<!DOCTYPE html>
@@ -139,10 +104,9 @@ Deno.serve(async (req: Request) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const PICA_SECRET_KEY = Deno.env.get("PICA_SECRET_KEY");
-    const PICA_GMAIL_CONNECTION_KEY = Deno.env.get("PICA_GMAIL_CONNECTION_KEY");
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !PICA_SECRET_KEY || !PICA_GMAIL_CONNECTION_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !RESEND_API_KEY) {
       console.error("[send-signup-confirmation] Missing required env vars");
       return new Response(JSON.stringify({ error: "Server misconfiguration" }), {
         status: 500,
@@ -161,37 +125,28 @@ Deno.serve(async (req: Request) => {
 
     if (linkError || !linkData?.properties?.action_link) {
       console.error("[send-signup-confirmation] generateLink error:", linkError);
-      return new Response(JSON.stringify({ error: "Failed to generate confirmation link", details: linkError?.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Failed to generate confirmation link", details: linkError?.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const confirmUrl = linkData.properties.action_link;
-
     const plainText = `Confirm your Mitratech UX Lab account\n\nClick the link below to verify your email address:\n\n${confirmUrl}\n\nIf you didn't create this account, you can safely ignore this email.\n\n© ${new Date().getFullYear()} Mitratech Holdings, Inc.`;
-    const htmlContent = buildHtmlEmail(confirmUrl);
 
-    const mime = buildMimeEmail(email, "Confirm your Mitratech UX Lab account", plainText, htmlContent);
-    const raw = base64UrlEncodeUtf8(mime);
-
-    const resp = await fetch("https://api.picaos.com/v1/passthrough/users/me/messages/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-pica-secret": PICA_SECRET_KEY,
-        "x-pica-connection-key": PICA_GMAIL_CONNECTION_KEY,
-        "x-pica-action-id": "conn_mod_def::F_JeJ_A_TKg::cc2kvVQQTiiIiLEDauy6zQ",
-      },
-      body: JSON.stringify({ raw }),
+    const resend = new Resend(RESEND_API_KEY);
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: email,
+      subject: "Confirm your Mitratech UX Lab account",
+      html: buildHtmlEmail(confirmUrl),
+      text: plainText,
     });
 
-    const text = await resp.text();
-    console.log(`[send-signup-confirmation] Pica response: status=${resp.status}, body=${text}`);
-
-    if (!resp.ok) {
-      return new Response(JSON.stringify({ error: "Failed to send email", details: text }), {
-        status: resp.status,
+    if (error) {
+      console.error("[send-signup-confirmation] Resend error:", error);
+      return new Response(JSON.stringify({ error: "Failed to send email", details: String(error) }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
