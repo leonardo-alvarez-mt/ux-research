@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Eye, EyeOff, AlertCircle, Mail, Loader2, RefreshCw } from 'lucide-react';
-
-const ALLOWED_DOMAIN = 'mitratech.com';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface SignUpPageProps {
   onSwitchToLogin: () => void;
@@ -51,161 +50,41 @@ function AuthBackground() {
   );
 }
 
-function MitratechLogo() {
+function GoogleIcon() {
   return (
-    <div className="flex justify-center mb-8">
-      <img src="/MitratechUXsvg.svg" alt="Mitratech UX" className="h-9 w-auto" />
-    </div>
-  );
-}
-
-function PageFooter({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
-  return (
-    <div className="mt-8 text-center space-y-3">
-      <div className="flex items-center justify-center gap-6 flex-wrap">
-        <a href="#" className="text-sm text-white/70 hover:text-white transition-colors">Help Center</a>
-        <a href="#" className="text-sm text-white/70 hover:text-white transition-colors">About</a>
-        <a href="#" className="text-sm text-white/70 hover:text-white transition-colors">Terms</a>
-        <button
-          type="button"
-          onClick={onSwitchToLogin}
-          className="text-sm font-semibold text-white hover:text-white/80 transition-colors"
-        >
-          Sign In
-        </button>
-      </div>
-      <p className="text-xs text-white/50">
-        Copyright &copy; 2016&ndash;{new Date().getFullYear()} Mitratech Holdings, Inc. All Rights Reserved.
-      </p>
-    </div>
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2581c-.8059.54-1.8368.859-3.0477.859-2.344 0-4.3282-1.5836-5.036-3.7105H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.71c-.18-.54-.2827-1.1168-.2827-1.71s.1027-1.17.2827-1.71V4.9582H.9574C.3477 6.1732 0 7.5482 0 9s.3477 2.8268.9574 4.0418L3.964 10.71z" fill="#FBBC05"/>
+      <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9574 4.9582L3.964 7.29C4.6718 5.1632 6.656 3.5795 9 3.5795z" fill="#EA4335"/>
+    </svg>
   );
 }
 
 export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleGoogleSignUp() {
     setError('');
-
-    const domain = email.split('@')[1]?.toLowerCase();
-    if (domain !== ALLOWED_DOMAIN) {
-      setError(`Access restricted to @${ALLOWED_DOMAIN} email addresses only.`);
-      return;
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
-
     setLoading(true);
-
-    const resp = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          hd: 'mitratech.com',
+          prompt: 'select_account',
+        },
       },
-      body: JSON.stringify({ email, password, full_name: fullName }),
     });
-
-    const result = await resp.json();
-    setLoading(false);
-
-    if (!resp.ok) {
-      setError(result.error ?? 'Failed to create account. Please try again.');
-      return;
+    if (oauthError) {
+      setError(oauthError.message);
+      setLoading(false);
     }
-
-    setSuccess(true);
-  }
-
-  async function handleResend() {
-    setResendLoading(true);
-    setResendSuccess(false);
-
-    await fetch(`${supabaseUrl}/functions/v1/register-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-      },
-      body: JSON.stringify({ email, resend: true }),
-    });
-
-    setResendLoading(false);
-    setResendSuccess(true);
   }
 
   const bgStyle = { background: 'linear-gradient(135deg, #0d3b8c 0%, #1a5abf 30%, #0ea5e9 70%, #06b6d4 100%)' };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden" style={bgStyle}>
-        <AuthBackground />
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10 text-center">
-            <MitratechLogo />
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-5">
-              <Mail className="w-8 h-8 text-blue-600" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Check your email</h2>
-            <p className="text-slate-500 text-sm mb-1">
-              We sent a confirmation link to
-            </p>
-            <p className="text-slate-800 font-semibold text-sm mb-5 break-all">{email}</p>
-            <p className="text-slate-400 text-xs mb-6">
-              Click the link in the email to confirm your account, then come back here to log in.
-            </p>
-
-            {resendSuccess ? (
-              <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm mb-4">
-                <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                </span>
-                Email resent successfully
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resendLoading}
-                className="w-full flex items-center justify-center gap-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg py-2.5 px-4 hover:bg-slate-50 transition-colors mb-4 disabled:opacity-60"
-              >
-                {resendLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                Resend confirmation email
-              </button>
-            )}
-
-            <button
-              onClick={onSwitchToLogin}
-              className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm"
-              style={{ background: '#1a56db' }}
-            >
-              Go to Log In
-            </button>
-          </div>
-          <PageFooter onSwitchToLogin={onSwitchToLogin} />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden" style={bgStyle}>
@@ -213,7 +92,14 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
 
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10">
-          <MitratechLogo />
+          <div className="flex justify-center mb-8">
+            <img src="/MitratechUXsvg.svg" alt="Mitratech UX" className="h-9 w-auto" />
+          </div>
+
+          <div className="mb-6 text-center">
+            <h1 className="text-xl font-bold text-slate-900 mb-1">Create your account</h1>
+            <p className="text-sm text-slate-500">Sign up with your Mitratech Google account</p>
+          </div>
 
           {error && (
             <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5">
@@ -222,89 +108,56 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Jane Smith"
-                required
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
-              />
-            </div>
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            ) : (
+              <GoogleIcon />
+            )}
+            {loading ? 'Redirecting to Google...' : 'Continue with Google'}
+          </button>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@mitratech.com"
-                required
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
-              />
-            </div>
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Only <span className="font-medium text-slate-500">@mitratech.com</span> accounts are permitted
+          </p>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimum 8 characters"
-                  required
-                  className="w-full px-4 py-2.5 pr-11 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
-              style={{ background: loading ? '#93c5fd' : '#1a56db' }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-
-            <div className="text-center pt-1">
-              <span className="text-sm text-slate-500">Already have an account? </span>
+          <div className="mt-6 pt-6 border-t border-slate-100 text-center">
+            <p className="text-sm text-slate-500">
+              Already have an account?{' '}
               <button
                 type="button"
                 onClick={onSwitchToLogin}
-                className="text-sm font-medium transition-colors"
+                className="font-semibold transition-colors hover:underline"
                 style={{ color: '#1a56db' }}
               >
                 Log in
               </button>
-            </div>
-          </form>
+            </p>
+          </div>
         </div>
 
-        <PageFooter onSwitchToLogin={onSwitchToLogin} />
+        <div className="mt-8 text-center space-y-3">
+          <div className="flex items-center justify-center gap-6 flex-wrap">
+            <a href="#" className="text-sm text-white/70 hover:text-white transition-colors">Help Center</a>
+            <a href="#" className="text-sm text-white/70 hover:text-white transition-colors">About</a>
+            <a href="#" className="text-sm text-white/70 hover:text-white transition-colors">Terms</a>
+            <button
+              type="button"
+              onClick={onSwitchToLogin}
+              className="text-sm font-semibold text-white hover:text-white/80 transition-colors"
+            >
+              Sign In
+            </button>
+          </div>
+          <p className="text-xs text-white/50">
+            Copyright &copy; 2016&ndash;{new Date().getFullYear()} Mitratech Holdings, Inc. All Rights Reserved.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -15,9 +15,9 @@ import SurveyBuilderPage from './pages/SurveyBuilderPage';
 import SurveyResponsePage from './pages/SurveyResponsePage';
 import SurveyResultsPage from './pages/SurveyResultsPage';
 import Sidebar, { MobileMenuButton } from './components/Sidebar';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-type AuthView = 'login' | 'signup' | 'email-confirmed' | 'forgot-password' | 'reset-password';
+type AuthView = 'login' | 'signup' | 'forgot-password' | 'reset-password';
 type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results';
 
 const OAUTH_PENDING_KEY = 'google_sheets_oauth_pending';
@@ -27,29 +27,9 @@ interface OAuthPending {
   claimToken: string;
 }
 
-function consumeEmailConfirmationToken(): boolean {
-  const params = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-  const type = params.get('type') || hashParams.get('type');
-  const accessToken = params.get('access_token') || hashParams.get('access_token');
-
-  if (type === 'signup' || type === 'email_change') {
-    if (accessToken) {
-      const clean = new URL(window.location.href);
-      clean.search = '';
-      clean.hash = '';
-      window.history.replaceState({}, '', clean.toString());
-      return true;
-    }
-  }
-  return false;
-}
-
 function detectPasswordRecovery(): boolean {
   const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-  const type = hashParams.get('type');
-  console.log('[App] detectPasswordRecovery — hash type:', type, 'full hash:', window.location.hash);
-  return type === 'recovery';
+  return hashParams.get('type') === 'recovery';
 }
 
 function getPathTokens(): { shareToken: string | null; surveyToken: string | null } {
@@ -105,39 +85,9 @@ export function clearOAuthPending() {
   sessionStorage.removeItem(OAUTH_PENDING_KEY);
 }
 
-function EmailConfirmedScreen({ onContinue }: { onContinue: () => void }) {
-  const bgStyle = { background: 'linear-gradient(135deg, #0d3b8c 0%, #1a5abf 30%, #0ea5e9 70%, #06b6d4 100%)' };
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden" style={bgStyle}>
-      <div className="relative z-10 w-full max-w-sm">
-        <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10 text-center">
-          <div className="flex justify-center mb-8">
-            <img src="/MitratechUXsvg.svg" alt="Mitratech UX" className="h-9 w-auto" />
-          </div>
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-5">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
-          </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Email confirmed!</h2>
-          <p className="text-slate-500 text-sm mb-6">
-            Your account is now active. You can log in with your credentials.
-          </p>
-          <button
-            onClick={onContinue}
-            className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm"
-            style={{ background: '#1a56db' }}
-          >
-            Go to Log In
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, authError, clearAuthError } = useAuth();
   const [authView, setAuthView] = useState<AuthView>(() => {
-    if (consumeEmailConfirmationToken()) return 'email-confirmed';
     if (detectPasswordRecovery()) return 'reset-password';
     return 'login';
   });
@@ -152,16 +102,8 @@ function AppContent() {
   const [oauthPending, setOauthPending] = useState<OAuthPending | null>(null);
 
   useEffect(() => {
-    if (authView === 'email-confirmed') {
-      supabase.auth.signOut();
-    }
-  }, [authView]);
-
-  useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[App] onAuthStateChange event:', event, 'session user:', session?.user?.email ?? null);
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('[App] PASSWORD_RECOVERY received — showing reset-password view');
         setAuthView('reset-password');
       }
     });
@@ -177,11 +119,7 @@ function AppContent() {
 
   useEffect(() => {
     function handleResize() {
-      if (window.innerWidth < 1024) {
-        setSidebarCollapsed(true);
-      } else {
-        setSidebarCollapsed(false);
-      }
+      setSidebarCollapsed(window.innerWidth < 1024);
     }
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -233,9 +171,6 @@ function AppContent() {
     if (authView === 'reset-password') {
       return <ResetPasswordPage onBackToLogin={() => setAuthView('login')} />;
     }
-    if (authView === 'email-confirmed') {
-      return <EmailConfirmedScreen onContinue={() => setAuthView('login')} />;
-    }
     if (authView === 'signup') {
       return <SignUpPage onSwitchToLogin={() => setAuthView('login')} />;
     }
@@ -246,6 +181,8 @@ function AppContent() {
       <LoginPage
         onSwitchToSignUp={() => setAuthView('signup')}
         onForgotPassword={() => setAuthView('forgot-password')}
+        externalError={authError}
+        onClearExternalError={clearAuthError}
       />
     );
   }

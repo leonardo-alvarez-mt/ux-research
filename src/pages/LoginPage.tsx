@@ -1,53 +1,56 @@
 import { useState } from 'react';
-import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-
-const ALLOWED_DOMAIN = 'mitratech.com';
 
 interface LoginPageProps {
   onSwitchToSignUp: () => void;
   onForgotPassword: () => void;
+  externalError?: string | null;
+  onClearExternalError?: () => void;
 }
 
-export default function LoginPage({ onSwitchToSignUp, onForgotPassword }: LoginPageProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2581c-.8059.54-1.8368.859-3.0477.859-2.344 0-4.3282-1.5836-5.036-3.7105H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.71c-.18-.54-.2827-1.1168-.2827-1.71s.1027-1.17.2827-1.71V4.9582H.9574C.3477 6.1732 0 7.5482 0 9s.3477 2.8268.9574 4.0418L3.964 10.71z" fill="#FBBC05"/>
+      <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9574 4.9582L3.964 7.29C4.6718 5.1632 6.656 3.5795 9 3.5795z" fill="#EA4335"/>
+    </svg>
+  );
+}
+
+export default function LoginPage({ onSwitchToSignUp, onForgotPassword: _onForgotPassword, externalError, onClearExternalError }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const displayError = externalError || error;
+
+  async function handleGoogleLogin() {
     setError('');
-
-    const domain = email.split('@')[1]?.toLowerCase();
-    if (domain !== ALLOWED_DOMAIN) {
-      setError(`Access restricted to @${ALLOWED_DOMAIN} email addresses only.`);
-      return;
-    }
-
+    if (onClearExternalError) onClearExternalError();
     setLoading(true);
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError) {
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          hd: 'mitratech.com',
+          prompt: 'select_account',
+        },
+      },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
       setLoading(false);
-      setError(authError.message);
-      return;
     }
-
-    if (data.user && !data.user.email_confirmed_at) {
-      await supabase.auth.signOut();
-      setLoading(false);
-      setError('Please confirm your email address before logging in. Check your inbox for the confirmation link.');
-      return;
-    }
-
-    setLoading(false);
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0d3b8c 0%, #1a5abf 30%, #0ea5e9 70%, #06b6d4 100%)' }}>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #0d3b8c 0%, #1a5abf 30%, #0ea5e9 70%, #06b6d4 100%)' }}
+    >
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -57,10 +60,7 @@ export default function LoginPage({ onSwitchToSignUp, onForgotPassword }: LoginP
           `,
         }}
       />
-      <div
-        className="absolute inset-0 pointer-events-none flex items-end justify-center"
-        style={{ bottom: 0 }}
-      >
+      <div className="absolute inset-0 pointer-events-none">
         <div
           style={{
             width: 0,
@@ -95,91 +95,35 @@ export default function LoginPage({ onSwitchToSignUp, onForgotPassword }: LoginP
             <img src="/MitratechUXsvg.svg" alt="Mitratech UX" className="h-9 w-auto" />
           </div>
 
-          {error && (
+          <div className="mb-6 text-center">
+            <h1 className="text-xl font-bold text-slate-900 mb-1">Welcome back</h1>
+            <p className="text-sm text-slate-500">Sign in with your Mitratech Google account</p>
+          </div>
+
+          {displayError && (
             <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5">
               <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700">{displayError}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@mitratech.com"
-                required
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
-              />
-            </div>
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            ) : (
+              <GoogleIcon />
+            )}
+            {loading ? 'Redirecting to Google...' : 'Continue with Google'}
+          </button>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-700">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={onForgotPassword}
-                  className="text-xs font-medium transition-colors hover:underline"
-                  style={{ color: '#1a56db' }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  className="w-full px-4 py-2.5 pr-11 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <input
-                id="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-              <label htmlFor="remember-me" className="text-sm text-slate-600 cursor-pointer select-none">
-                Remember Me
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
-              style={{ background: loading ? '#93c5fd' : '#1a56db' }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Log in'
-              )}
-            </button>
-
-          </form>
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Only <span className="font-medium text-slate-500">@mitratech.com</span> accounts are permitted
+          </p>
 
           <div className="mt-6 pt-6 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-500">
