@@ -2,6 +2,9 @@
   "mcpServers": {
     "mintlify_mcp": {
       "enabled": true
+    },
+    "zeroheight": {
+      "enabled": false
     }
   }
 }
