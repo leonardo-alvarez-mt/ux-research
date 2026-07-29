@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { AlertCircle, Loader2, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getOAuthRedirectUrl } from '../lib/urls';
 
 const ALLOWED_DOMAIN = 'mitratech.com';
 
@@ -26,7 +25,7 @@ export default function ForgotPasswordPage({ onBackToLogin }: ForgotPasswordPage
     }
 
     setLoading(true);
-    const redirectTo = getOAuthRedirectUrl();
+    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
     console.log('[ForgotPassword] Sending reset email to:', email, 'redirectTo:', redirectTo);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     setLoading(false);

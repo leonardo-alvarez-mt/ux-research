@@ -6,7 +6,3 @@ export function buildShareableUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${PRODUCTION_ORIGIN}${BASE_PATH}${cleanPath}`;
 }
-
-export function getOAuthRedirectUrl(): string {
-  return `${window.location.origin}${BASE_PATH}`;
-}
