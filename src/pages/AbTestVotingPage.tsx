@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, MessageSquare, Shield } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, MessageSquare, Shield, Maximize2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchAbTestByShareToken, fetchAbTestBatches, fetchMyAbTestVotes, castAbTestVote } from '../lib/data';
 import type { AbTest, AbTestBatchWithOptions, AbTestVote } from '../lib/types';
@@ -15,6 +15,11 @@ interface VoteSelection {
   comment: string;
 }
 
+interface LightboxState {
+  options: AbTestBatchWithOptions['options'];
+  index: number;
+}
+
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,6 +28,86 @@ function GoogleIcon() {
       <path d="M3.964 10.71c-.18-.54-.2827-1.1168-.2827-1.71s.1027-1.17.2827-1.71V4.9582H.9574C.3477 6.1732 0 7.5482 0 9s.3477 2.8268.9574 4.0418L3.964 10.71z" fill="#FBBC05"/>
       <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9574 4.9582L3.964 7.29C4.6718 5.1632 6.656 3.5795 9 3.5795z" fill="#EA4335"/>
     </svg>
+  );
+}
+
+function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () => void }) {
+  const [index, setIndex] = useState(lightbox.index);
+  const { options } = lightbox;
+  const current = options[index];
+
+  const prev = useCallback(() => setIndex((i) => (i - 1 + options.length) % options.length), [options.length]);
+  const next = useCallback(() => setIndex((i) => (i + 1) % options.length), [options.length]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') prev();
+      if (e.key === 'ArrowRight') next();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, prev, next]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center"
+      style={{ background: 'rgba(15, 15, 25, 0.85)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+        aria-label="Close"
+      >
+        <X className="w-5 h-5 text-white" />
+      </button>
+
+      {/* Left arrow */}
+      <button
+        onClick={(e) => { e.stopPropagation(); prev(); }}
+        className="absolute left-4 sm:left-8 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+        aria-label="Previous"
+      >
+        <ArrowLeft className="w-5 h-5 text-white" />
+      </button>
+
+      {/* Image container — stop propagation so clicking the image itself doesn't close */}
+      <div
+        className="relative flex flex-col items-center mx-20 sm:mx-24 max-w-5xl w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={current.image_url}
+          alt={`Option ${current.label}`}
+          className="w-full max-h-[78vh] object-contain rounded-xl shadow-2xl"
+        />
+        {/* Label + indicator */}
+        <div className="mt-4 flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
+            <span className="w-6 h-6 bg-white/20 text-white rounded text-xs font-bold flex items-center justify-center">
+              {current.label}
+            </span>
+            {current.caption && (
+              <span className="text-sm text-white/90 font-medium">{current.caption}</span>
+            )}
+          </div>
+          <span className="text-white/50 text-xs font-medium">
+            {options.map((o) => o.label).join(' / ')} · viewing {current.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Right arrow */}
+      <button
+        onClick={(e) => { e.stopPropagation(); next(); }}
+        className="absolute right-4 sm:right-8 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+        aria-label="Next"
+      >
+        <ArrowRight className="w-5 h-5 text-white" />
+      </button>
+    </div>
   );
 }
 
@@ -38,6 +123,7 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
   const [selections, setSelections] = useState<Record<string, VoteSelection>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -264,110 +350,141 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
   const existingVote = myVotes[currentBatch.id];
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="fixed top-0 left-0 right-0 h-1 bg-slate-100 z-50">
-        <div className="h-full bg-violet-500 transition-all duration-500" style={{ width: `${progress}%` }} />
-      </div>
+    <>
+      {lightbox && (
+        <Lightbox lightbox={lightbox} onClose={() => setLightbox(null)} />
+      )}
 
-      <div className="flex-1 flex flex-col px-6 py-10 max-w-5xl mx-auto w-full">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-xs font-semibold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-full">
-            Batch {currentIndex + 1} / {batches.length}
-          </span>
-          {existingVote && (
-            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
-              You voted before — voting again will update your choice
+      <div className="min-h-screen bg-white flex flex-col">
+        <div className="fixed top-0 left-0 right-0 h-1 bg-slate-100 z-50">
+          <div className="h-full bg-violet-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+        </div>
+
+        <div className="flex-1 flex flex-col px-6 py-10 max-w-5xl mx-auto w-full">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs font-semibold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-full">
+              Batch {currentIndex + 1} / {batches.length}
             </span>
-          )}
-        </div>
+            {existingVote && (
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
+                You voted before — voting again will update your choice
+              </span>
+            )}
+          </div>
 
-        <h2 className="text-2xl font-bold text-slate-900 mb-6 leading-tight">
-          {currentBatch.prompt}
-        </h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-6 leading-tight">
+            {currentBatch.prompt}
+          </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-          {currentBatch.options.map((option) => {
-            const selected = currentSelection?.optionId === option.id;
-            return (
-              <button
-                key={option.id}
-                onClick={() => selectOption(currentBatch.id, option.id)}
-                className={`group relative rounded-xl border-2 overflow-hidden transition-all text-left ${
-                  selected
-                    ? 'border-violet-500 ring-2 ring-violet-200'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                {selected && (
-                  <div className="absolute top-3 right-3 z-10 w-7 h-7 bg-violet-600 rounded-full flex items-center justify-center shadow-lg">
-                    <Check className="w-4 h-4 text-white" />
-                  </div>
-                )}
-                <div className="aspect-video bg-slate-50 flex items-center justify-center overflow-hidden">
-                  <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-full object-contain" />
-                </div>
-                <div className="px-4 py-3 flex items-center gap-2">
-                  <span className="w-6 h-6 bg-slate-100 text-slate-600 rounded text-xs font-bold flex items-center justify-center">
-                    {option.label}
-                  </span>
-                  {option.caption && (
-                    <span className="text-sm text-slate-600 truncate">{option.caption}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+            {currentBatch.options.map((option, optionIndex) => {
+              const selected = currentSelection?.optionId === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => selectOption(currentBatch.id, option.id)}
+                  className={`group relative rounded-xl border-2 overflow-hidden transition-all text-left ${
+                    selected
+                      ? 'border-violet-500 ring-2 ring-violet-200'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {selected && (
+                    <div className="absolute top-3 right-3 z-10 w-7 h-7 bg-violet-600 rounded-full flex items-center justify-center shadow-lg">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
                   )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
 
-        <div className="mb-6">
-          <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-2">
-            <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
-            Why did you pick this? <span className="text-slate-400 font-normal">(optional)</span>
-          </label>
-          <textarea
-            value={currentSelection?.comment ?? ''}
-            onChange={(e) => setComment(currentBatch.id, e.target.value)}
-            placeholder="Share your thoughts on why you prefer this option..."
-            rows={3}
-            maxLength={500}
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all placeholder:text-slate-400 resize-none"
-          />
-        </div>
+                  {/* Expand button */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="View fullscreen"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightbox({ options: currentBatch.options, index: optionIndex });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        setLightbox({ options: currentBatch.options, index: optionIndex });
+                      }
+                    }}
+                    className="absolute top-3 left-3 z-10 w-7 h-7 bg-black/30 hover:bg-black/50 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-white" />
+                  </div>
 
-        {submitError && (
-          <div className="flex items-center gap-2 mb-4">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-            <p className="text-sm text-red-600">{submitError}</p>
+                  <div className="bg-slate-50 flex items-center justify-center overflow-hidden" style={{ height: '320px' }}>
+                    <img
+                      src={option.image_url}
+                      alt={`Option ${option.label}`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="px-4 py-3 flex items-center gap-2">
+                    <span className="w-6 h-6 bg-slate-100 text-slate-600 rounded text-xs font-bold flex items-center justify-center">
+                      {option.label}
+                    </span>
+                    {option.caption && (
+                      <span className="text-sm text-slate-600 truncate">{option.caption}</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        )}
 
-        <div className="flex items-center justify-between">
-          <div>
-            {currentIndex > 0 && (
-              <button
-                onClick={handleBack}
-                className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center gap-1.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back
-              </button>
-            )}
+          <div className="mb-6">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-2">
+              <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+              Why did you pick this? <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={currentSelection?.comment ?? ''}
+              onChange={(e) => setComment(currentBatch.id, e.target.value)}
+              placeholder="Share your thoughts on why you prefer this option..."
+              rows={3}
+              maxLength={500}
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all placeholder:text-slate-400 resize-none"
+            />
           </div>
-          <button
-            onClick={handleNext}
-            disabled={submitting || !currentSelection?.optionId}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg transition-all text-sm shadow-sm"
-          >
-            {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : isLastBatch ? (
-              <><Check className="w-4 h-4" /> Submit Votes</>
-            ) : (
-              <>Next <ArrowRight className="w-4 h-4" /></>
-            )}
-          </button>
+
+          {submitError && (
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-sm text-red-600">{submitError}</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div>
+              {currentIndex > 0 && (
+                <button
+                  onClick={handleBack}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleNext}
+              disabled={submitting || !currentSelection?.optionId}
+              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg transition-all text-sm shadow-sm"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isLastBatch ? (
+                <><Check className="w-4 h-4" /> Submit Votes</>
+              ) : (
+                <>Next <ArrowRight className="w-4 h-4" /></>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
