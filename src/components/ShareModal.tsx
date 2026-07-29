@@ -26,6 +26,7 @@ import {
 import type { SessionShare, CollaboratorWithProfile, CollaboratorRole } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { buildShareableUrl } from '../lib/urls';
 
 async function sendCollaboratorInviteEmail(
   to: string,
@@ -255,8 +256,7 @@ interface ShareModalProps {
 type ModalTab = 'link' | 'collaborators';
 
 function buildShareUrl(token: string): string {
-  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  return `${window.location.origin}${base}/share/${token}`;
+  return buildShareableUrl(`/share/${token}`);
 }
 
 export default function ShareModal({ sessionId, sessionName, onClose }: ShareModalProps) {

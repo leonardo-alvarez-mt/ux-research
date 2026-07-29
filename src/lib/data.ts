@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { buildShareableUrl } from './urls';
 import type {
   Session,
   Task,
@@ -1291,7 +1292,6 @@ export async function fetchAbTestVoteCounts(testId: string): Promise<Record<stri
 }
 
 export function buildAbTestShareUrl(token: string): string {
-  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  return `${window.location.origin}${base}/abtest/${token}`;
+  return buildShareableUrl(`/abtest/${token}`);
 }
 

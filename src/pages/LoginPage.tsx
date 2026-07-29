@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getOAuthRedirectUrl } from '../lib/urls';
 
 interface LoginPageProps {
   onSwitchToSignUp: () => void;
@@ -33,7 +34,7 @@ export default function LoginPage({ onSwitchToSignUp, onForgotPassword: _onForgo
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getOAuthRedirectUrl(),
         queryParams: {
           hd: 'mitratech.com',
           prompt: 'select_account',
