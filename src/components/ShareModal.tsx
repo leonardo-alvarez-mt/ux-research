@@ -255,7 +255,8 @@ interface ShareModalProps {
 type ModalTab = 'link' | 'collaborators';
 
 function buildShareUrl(token: string): string {
-  return `${window.location.origin}/share/${token}`;
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  return `${window.location.origin}${base}/share/${token}`;
 }
 
 export default function ShareModal({ sessionId, sessionName, onClose }: ShareModalProps) {

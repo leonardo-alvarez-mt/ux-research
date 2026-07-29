@@ -32,9 +32,19 @@ function detectPasswordRecovery(): boolean {
   return hashParams.get('type') === 'recovery';
 }
 
+function getAppPathname(): string {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const path = window.location.pathname;
+  if (base && path.startsWith(base)) {
+    return path.slice(base.length) || '/';
+  }
+  return path;
+}
+
 function getPathTokens(): { shareToken: string | null; surveyToken: string | null } {
-  const shareMatch = window.location.pathname.match(/^\/share\/([a-f0-9-]{36})$/i);
-  const surveyMatch = window.location.pathname.match(/^\/survey\/([a-f0-9-]{36})$/i);
+  const pathname = getAppPathname();
+  const shareMatch = pathname.match(/^\/share\/([a-f0-9-]{36})$/i);
+  const surveyMatch = pathname.match(/^\/survey\/([a-f0-9-]{36})$/i);
   return {
     shareToken: shareMatch ? shareMatch[1] : null,
     surveyToken: surveyMatch ? surveyMatch[1] : null,
@@ -127,7 +137,7 @@ function AppContent() {
 
   useEffect(() => {
     if (shareToken || surveyToken) {
-      window.history.replaceState({}, '', '/');
+      window.history.replaceState({}, '', import.meta.env.BASE_URL);
     }
   }, [shareToken, surveyToken]);
 

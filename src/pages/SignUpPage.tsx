@@ -93,7 +93,7 @@ export default function SignUpPage({ onSwitchToLogin }: SignUpPageProps) {
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10">
           <div className="flex justify-center mb-8">
-            <img src="/MitratechUXsvg.svg" alt="Mitratech UX" className="h-9 w-auto" />
+            <img src={`${import.meta.env.BASE_URL}MitratechUXsvg.svg`} alt="Mitratech UX" className="h-9 w-auto" />
           </div>
 
           <div className="mb-6 text-center">
