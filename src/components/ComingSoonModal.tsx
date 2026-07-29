@@ -7,6 +7,8 @@ const TYPE_ICONS: Record<SessionType, React.ReactNode> = {
   user_interview: <MessageSquare className="w-6 h-6 text-teal-600" />,
   client_working_group: <Users className="w-6 h-6 text-teal-600" />,
   guerrilla_testing: <Zap className="w-6 h-6 text-teal-600" />,
+  survey: <MessageSquare className="w-6 h-6 text-teal-600" />,
+  ab_test: <MessageSquare className="w-6 h-6 text-teal-600" />,
 };
 
 const TYPE_DESCRIPTIONS: Record<SessionType, string> = {
@@ -14,6 +16,8 @@ const TYPE_DESCRIPTIONS: Record<SessionType, string> = {
   user_interview: 'Structured one-on-one conversations to understand user needs, motivations, and behaviors in depth.',
   client_working_group: 'Collaborative workshops with key stakeholders to align on design decisions and gather feedback.',
   guerrilla_testing: 'Quick, informal usability tests conducted in real-world environments with minimal preparation.',
+  survey: 'Create and share surveys to collect structured feedback from your audience.',
+  ab_test: 'Compare two screenshots and let your team vote on their preference.',
 };
 
 interface ComingSoonModalProps {

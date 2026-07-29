@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, LayoutDashboard, Loader2, ClipboardList, Users, ClipboardCheck } from 'lucide-react';
+import { Plus, LayoutDashboard, Loader2, ClipboardList, Users, ClipboardCheck, GitCompare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchSessions,
@@ -10,14 +10,20 @@ import {
   fetchSurveys,
   fetchSurveyResponses,
   createSurvey,
+  fetchAbTests,
+  fetchAbTestVotes,
+  deleteAbTest,
   deleteSurvey,
+  fetchAbTestBatches,
 } from '../lib/data';
 import type { SessionWithStats } from '../lib/data';
-import type { Session, Task, SessionType, Survey } from '../lib/types';
+import type { Session, Task, SessionType, Survey, AbTest } from '../lib/types';
 import SessionCard from '../components/SessionCard';
 import SurveyCard from '../components/SurveyCard';
+import AbTestCard from '../components/AbTestCard';
 import CreateSessionModal from '../components/CreateSessionModal';
 import CreateCwgSessionModal from '../components/CreateCwgSessionModal';
+import CreateAbTestModal from '../components/CreateAbTestModal';
 import NewSessionMenu from '../components/NewSessionMenu';
 import ComingSoonModal from '../components/ComingSoonModal';
 
@@ -28,18 +34,23 @@ interface DashboardPageProps {
   onViewSession: (id: string) => void;
   onViewSurvey: (id: string) => void;
   onViewSurveyResults?: (id: string) => void;
+  onViewAbTestResults?: (id: string) => void;
   refreshKey?: number;
 }
 
-export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurveyResults, refreshKey }: DashboardPageProps) {
+export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurveyResults, onViewAbTestResults, refreshKey }: DashboardPageProps) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<SessionWithStats[]>([]);
   const [sharedSessions, setSharedSessions] = useState<SessionWithStats[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [surveyResponseCounts, setSurveyResponseCounts] = useState<Record<string, number>>({});
+  const [abTests, setAbTests] = useState<AbTest[]>([]);
+  const [abTestVoteCounts, setAbTestVoteCounts] = useState<Record<string, number>>({});
+  const [abTestBatchCounts, setAbTestBatchCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showCwgModal, setShowCwgModal] = useState(false);
+  const [showAbTestModal, setShowAbTestModal] = useState(false);
   const [selectedSessionType, setSelectedSessionType] = useState<SessionType>('usability_test');
   const [comingSoonType, setComingSoonType] = useState<SessionType | null>(null);
   const [activeTab, setActiveTab] = useState<SessionsTab>('mine');
@@ -53,10 +64,11 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
     if (!user) return;
     setLoading(true);
     try {
-      const [data, shared, surveyList] = await Promise.all([
+      const [data, shared, surveyList, abTestList] = await Promise.all([
         fetchSessions(user.id, false),
         fetchSharedWithMeSessions(user.id),
         fetchSurveys(user.id),
+        fetchAbTests(user.id),
       ]);
 
       const withStats = await Promise.all(
@@ -78,6 +90,19 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
         })
       );
 
+      const abVoteCounts: Record<string, number> = {};
+      const abBatchCounts: Record<string, number> = {};
+      await Promise.all(
+        abTestList.map(async (t) => {
+          const [votes, batches] = await Promise.all([
+            fetchAbTestVotes(t.id),
+            fetchAbTestBatches(t.id),
+          ]);
+          abVoteCounts[t.id] = votes.length;
+          abBatchCounts[t.id] = batches.length;
+        })
+      );
+
       const sorted = [...withStats].sort((a, b) => {
         const aCompleted = a.totalCount > 0 && a.completedCount === a.totalCount;
         const bCompleted = b.totalCount > 0 && b.completedCount === b.totalCount;
@@ -90,6 +115,9 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
       setSharedSessions(shared);
       setSurveys(surveyList);
       setSurveyResponseCounts(responseCounts);
+      setAbTests(abTestList);
+      setAbTestVoteCounts(abVoteCounts);
+      setAbTestBatchCounts(abBatchCounts);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -114,6 +142,12 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
     setSurveys((prev) => prev.filter((s) => s.id !== id));
   }
 
+  async function handleDeleteAbTest(id: string) {
+    if (!confirm('Delete this A/B Test and all its votes? This cannot be undone.')) return;
+    await deleteAbTest(id);
+    setAbTests((prev) => prev.filter((t) => t.id !== id));
+  }
+
   function handleCreated(session: Session) {
     setShowModal(false);
     onViewSession(session.id);
@@ -129,6 +163,8 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
       onViewSurvey(newSurvey.id);
     } else if (type === 'client_working_group') {
       setShowCwgModal(true);
+    } else if (type === 'ab_test') {
+      setShowAbTestModal(true);
     } else {
       setComingSoonType(type);
     }
@@ -138,14 +174,15 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
 
   const filteredSessions = typeFilter === 'all'
     ? activeSessions
-    : typeFilter === 'survey'
+    : typeFilter === 'survey' || typeFilter === 'ab_test'
     ? []
     : activeSessions.filter((s) => s.session.session_type === typeFilter);
 
   const showSurveys = typeFilter === 'all' || typeFilter === 'survey';
-  const showRegularSessions = typeFilter === 'all' || typeFilter !== 'survey';
+  const showAbTests = typeFilter === 'all' || typeFilter === 'ab_test';
+  const showRegularSessions = typeFilter === 'all' || (typeFilter !== 'survey' && typeFilter !== 'ab_test');
 
-  const totalItems = activeSessions.length + surveys.length;
+  const totalItems = activeSessions.length + surveys.length + abTests.length;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -158,7 +195,7 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
             <div>
               <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
               <p className="text-slate-500 text-sm">
-                {activeSessions.length} active {activeSessions.length === 1 ? 'session' : 'sessions'} &middot; {surveys.length} {surveys.length === 1 ? 'survey' : 'surveys'}
+                {activeSessions.length} active {activeSessions.length === 1 ? 'session' : 'sessions'} &middot; {surveys.length} {surveys.length === 1 ? 'survey' : 'surveys'} &middot; {abTests.length} A/B {abTests.length === 1 ? 'test' : 'tests'}
               </p>
             </div>
           </div>
@@ -166,7 +203,7 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <StatCard label="Active Sessions" value={activeSessions.length} color="blue" />
           <StatCard
             label="Completed Tasks"
@@ -178,6 +215,11 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
             label="Survey Responses"
             value={Object.values(surveyResponseCounts).reduce((s, n) => s + n, 0)}
             color="amber"
+          />
+          <StatCard
+            label="A/B Test Votes"
+            value={Object.values(abTestVoteCounts).reduce((s, n) => s + n, 0)}
+            color="violet"
           />
         </div>
 
@@ -247,6 +289,12 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
                 onClick={() => setTypeFilter('survey')}
                 icon={<ClipboardList className="w-3 h-3" />}
               />
+              <FilterPill
+                label="A/B Test"
+                active={typeFilter === 'ab_test'}
+                onClick={() => setTypeFilter('ab_test')}
+                icon={<GitCompare className="w-3 h-3" />}
+              />
             </div>
           )}
         </div>
@@ -260,14 +308,24 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
             sessions={showRegularSessions ? filteredSessions : []}
             surveys={showSurveys ? surveys : []}
             surveyResponseCounts={surveyResponseCounts}
+            abTests={showAbTests ? abTests : []}
+            abTestVoteCounts={abTestVoteCounts}
+            abTestBatchCounts={abTestBatchCounts}
             onViewSession={onViewSession}
             onViewSurvey={onViewSurvey}
             onViewSurveyResults={onViewSurveyResults ?? onViewSurvey}
+            onViewAbTestResults={onViewAbTestResults ?? onViewSurvey}
             onArchive={handleArchive}
             onDeleteSession={handleDelete}
             onDeleteSurvey={handleDeleteSurvey}
+            onDeleteAbTest={handleDeleteAbTest}
             typeFilter={typeFilter}
             onCreateFirst={() => setShowModal(true)}
+            onAbTestCreated={(test) => {
+              setShowAbTestModal(false);
+              (onViewAbTestResults ?? onViewSurvey)(test.id);
+              loadAll();
+            }}
           />
         ) : (
           sharedSessions.length === 0 ? (
@@ -315,6 +373,16 @@ export default function DashboardPage({ onViewSession, onViewSurvey, onViewSurve
           }}
         />
       )}
+      {showAbTestModal && (
+        <CreateAbTestModal
+          onClose={() => setShowAbTestModal(false)}
+          onCreated={(test) => {
+            setShowAbTestModal(false);
+            (onViewAbTestResults ?? onViewSurvey)(test.id);
+            loadAll();
+          }}
+        />
+      )}
       {comingSoonType && (
         <ComingSoonModal
           sessionType={comingSoonType}
@@ -333,32 +401,44 @@ interface MyWorkGridProps {
   sessions: SessionWithStats[];
   surveys: Survey[];
   surveyResponseCounts: Record<string, number>;
+  abTests: AbTest[];
+  abTestVoteCounts: Record<string, number>;
+  abTestBatchCounts: Record<string, number>;
   onViewSession: (id: string) => void;
   onViewSurvey: (id: string) => void;
   onViewSurveyResults: (id: string) => void;
+  onViewAbTestResults: (id: string) => void;
   onArchive: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onDeleteSurvey: (id: string) => void;
+  onDeleteAbTest: (id: string) => void;
   typeFilter: TypeFilter;
   onCreateFirst: () => void;
+  onAbTestCreated: (test: AbTest) => void;
 }
 
 function MyWorkGrid({
   sessions,
   surveys,
   surveyResponseCounts,
+  abTests,
+  abTestVoteCounts,
+  abTestBatchCounts,
   onViewSession,
   onViewSurvey,
   onViewSurveyResults,
+  onViewAbTestResults,
   onArchive,
   onDeleteSession,
   onDeleteSurvey,
+  onDeleteAbTest,
   typeFilter,
   onCreateFirst,
 }: MyWorkGridProps) {
   const hasSessions = sessions.length > 0;
   const hasSurveys = surveys.length > 0;
-  const isEmpty = !hasSessions && !hasSurveys;
+  const hasAbTests = abTests.length > 0;
+  const isEmpty = !hasSessions && !hasSurveys && !hasAbTests;
 
   if (isEmpty) {
     return <EmptyState filter={typeFilter} onCreate={onCreateFirst} />;
@@ -401,6 +481,26 @@ function MyWorkGrid({
                 onEdit={onViewSurvey}
                 onResults={onViewSurveyResults}
                 onDelete={onDeleteSurvey}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hasAbTests && (
+        <section>
+          {typeFilter === 'all' && (
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">A/B Tests</h2>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {abTests.map((test) => (
+              <AbTestCard
+                key={test.id}
+                test={test}
+                voteCount={abTestVoteCounts[test.id] ?? 0}
+                batchCount={abTestBatchCounts[test.id] ?? 0}
+                onViewResults={onViewAbTestResults}
+                onDelete={onDeleteAbTest}
               />
             ))}
           </div>
@@ -471,6 +571,20 @@ function EmptyState({ filter, onCreate }: { filter: TypeFilter; onCreate: () => 
         <h3 className="text-slate-900 font-semibold text-base mb-2">No surveys yet</h3>
         <p className="text-slate-500 text-sm max-w-xs">
           Create your first survey from the "New Session" menu above.
+        </p>
+      </div>
+    );
+  }
+
+  if (filter === 'ab_test') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 bg-violet-100 rounded-2xl flex items-center justify-center mb-4">
+          <GitCompare className="w-8 h-8 text-violet-400" />
+        </div>
+        <h3 className="text-slate-900 font-semibold text-base mb-2">No A/B Tests yet</h3>
+        <p className="text-slate-500 text-sm max-w-xs">
+          Create your first A/B Test from the "New Session" menu to compare screenshots and collect votes.
         </p>
       </div>
     );

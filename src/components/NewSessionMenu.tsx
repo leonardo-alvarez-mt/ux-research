@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, ChevronDown, MousePointerClick, MessageSquare, Users, Zap, ClipboardList } from 'lucide-react';
+import { Plus, ChevronDown, MousePointerClick, MessageSquare, Users, Zap, ClipboardList, GitCompare } from 'lucide-react';
 import type { SessionType } from '../lib/types';
 
 interface SessionTypeOption {
@@ -45,6 +45,13 @@ const SESSION_OPTIONS: SessionTypeOption[] = [
     description: 'Quick informal tests in the field',
     icon: <Zap className="w-4 h-4" />,
     available: false,
+  },
+  {
+    type: 'ab_test',
+    label: 'A/B Test',
+    description: 'Compare two screenshots and let your team vote on their preference',
+    icon: <GitCompare className="w-4 h-4" />,
+    available: true,
   },
 ];
 

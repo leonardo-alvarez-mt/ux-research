@@ -79,6 +79,8 @@ export default function MySessionsPage({ onViewSession, refreshKey }: MySessions
       setShowModal(true);
     } else if (type === 'client_working_group') {
       setShowCwgModal(true);
+    } else if (type === 'ab_test' || type === 'survey') {
+      setComingSoonType(type);
     } else {
       setComingSoonType(type);
     }

@@ -291,6 +291,97 @@ export interface Database {
         Insert: never;
         Update: never;
       };
+      ab_tests: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string;
+          status: 'draft' | 'published';
+          share_token: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          description?: string;
+          status?: 'draft' | 'published';
+          share_token?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string;
+          status?: 'draft' | 'published';
+        };
+      };
+      ab_test_batches: {
+        Row: {
+          id: string;
+          test_id: string;
+          prompt: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          test_id: string;
+          prompt?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          prompt?: string;
+          sort_order?: number;
+        };
+      };
+      ab_test_options: {
+        Row: {
+          id: string;
+          batch_id: string;
+          label: 'A' | 'B';
+          image_url: string;
+          caption: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          batch_id: string;
+          label?: 'A' | 'B';
+          image_url: string;
+          caption?: string;
+          created_at?: string;
+        };
+        Update: {
+          image_url?: string;
+          caption?: string;
+        };
+      };
+      ab_test_votes: {
+        Row: {
+          id: string;
+          batch_id: string;
+          option_id: string;
+          voter_id: string;
+          comment: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          batch_id: string;
+          option_id: string;
+          voter_id?: string;
+          comment?: string;
+          created_at?: string;
+        };
+        Update: {
+          option_id?: string;
+          comment?: string;
+        };
+      };
     };
   };
 }
@@ -350,7 +441,7 @@ export const PHASE_ORDER: string[] = [
   'After Each Test',
 ];
 
-export type SessionType = 'usability_test' | 'user_interview' | 'client_working_group' | 'guerrilla_testing' | 'survey';
+export type SessionType = 'usability_test' | 'user_interview' | 'client_working_group' | 'guerrilla_testing' | 'survey' | 'ab_test';
 
 export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   usability_test: 'Usability Testing',
@@ -358,6 +449,7 @@ export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   client_working_group: 'Client Working Group',
   guerrilla_testing: 'Guerrilla Testing',
   survey: 'Survey',
+  ab_test: 'A/B Test',
 };
 
 // ============================================================
@@ -509,3 +601,25 @@ export const CWG_TIMEZONE_LABELS: Record<string, string> = {
   'Australia/Sydney': 'Sydney (AEST)',
   'Pacific/Auckland': 'Auckland (NZST)',
 };
+
+// ============================================================
+// A/B TEST TYPES
+// ============================================================
+
+export type AbTest = Database['public']['Tables']['ab_tests']['Row'];
+export type AbTestBatch = Database['public']['Tables']['ab_test_batches']['Row'];
+export type AbTestOption = Database['public']['Tables']['ab_test_options']['Row'];
+export type AbTestVote = Database['public']['Tables']['ab_test_votes']['Row'];
+
+export interface AbTestBatchWithOptions extends AbTestBatch {
+  options: AbTestOption[];
+}
+
+export interface AbTestWithDetails extends AbTest {
+  batches: AbTestBatchWithOptions[];
+}
+
+export interface AbTestVoteWithVoter extends AbTestVote {
+  voter_name: string | null;
+  voter_email: string | null;
+}

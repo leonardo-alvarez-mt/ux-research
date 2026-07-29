@@ -18,6 +18,12 @@ import type {
   SurveyResponseAnswer,
   SurveyGoogleSheetsConnection,
   CwgSessionMeta,
+  AbTest,
+  AbTestBatch,
+  AbTestOption,
+  AbTestVote,
+  AbTestBatchWithOptions,
+  AbTestVoteWithVoter,
 } from './types';
 
 export async function fetchSessions(userId: string, archived = false): Promise<Session[]> {
@@ -1018,3 +1024,274 @@ export async function sendCwgEmail(payload: {
     return { ok: false, error: err instanceof Error ? err.message : 'Network error.' };
   }
 }
+
+// ============================================================
+// A/B TESTS
+// ============================================================
+
+export interface AbTestBatchInput {
+  prompt: string;
+  optionA: { file: File; caption: string };
+  optionB: { file: File; caption: string };
+}
+
+export async function uploadAbTestImage(testId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'png';
+  const path = `ab-tests/${testId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage
+    .from('task-files')
+    .upload(path, file, { upsert: false });
+  if (error) throw error;
+  const { data } = supabase.storage.from('task-files').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export async function createAbTest(
+  userId: string,
+  title: string,
+  description: string,
+  batches: AbTestBatchInput[]
+): Promise<AbTest> {
+  const { data: test, error: testError } = await supabase
+    .from('ab_tests')
+    .insert({
+      user_id: userId,
+      title: title.trim(),
+      description: description.trim(),
+      status: 'published',
+    })
+    .select()
+    .single();
+  if (testError) throw new Error(testError.message);
+
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+
+    const urlA = await uploadAbTestImage(test.id, batch.optionA.file);
+    const urlB = await uploadAbTestImage(test.id, batch.optionB.file);
+
+    const { data: batchRow, error: batchError } = await supabase
+      .from('ab_test_batches')
+      .insert({
+        test_id: test.id,
+        prompt: batch.prompt.trim() || 'Which do you prefer?',
+        sort_order: i,
+      })
+      .select()
+      .single();
+    if (batchError) throw new Error(batchError.message);
+
+    const { error: optError } = await supabase.from('ab_test_options').insert([
+      { batch_id: batchRow.id, label: 'A', image_url: urlA, caption: batch.optionA.caption.trim() },
+      { batch_id: batchRow.id, label: 'B', image_url: urlB, caption: batch.optionB.caption.trim() },
+    ]);
+    if (optError) throw new Error(optError.message);
+  }
+
+  return test as AbTest;
+}
+
+export async function fetchAbTests(userId: string): Promise<AbTest[]> {
+  const { data, error } = await supabase
+    .from('ab_tests')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AbTest[];
+}
+
+export async function fetchAbTestById(id: string): Promise<AbTest | null> {
+  const { data, error } = await supabase
+    .from('ab_tests')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as AbTest | null;
+}
+
+export async function fetchAbTestByShareToken(token: string): Promise<AbTest | null> {
+  const { data, error } = await supabase
+    .from('ab_tests')
+    .select('*')
+    .eq('share_token', token)
+    .maybeSingle();
+  if (error) throw error;
+  return data as AbTest | null;
+}
+
+export async function fetchAbTestBatches(testId: string): Promise<AbTestBatchWithOptions[]> {
+  const { data: batches, error } = await supabase
+    .from('ab_test_batches')
+    .select('*')
+    .eq('test_id', testId)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+
+  if (!batches || batches.length === 0) return [];
+
+  const batchIds = batches.map((b) => b.id);
+  const { data: options, error: optError } = await supabase
+    .from('ab_test_options')
+    .select('*')
+    .in('batch_id', batchIds)
+    .order('label', { ascending: true });
+  if (optError) throw optError;
+
+  const optionsByBatch = new Map<string, AbTestOption[]>();
+  for (const opt of options ?? []) {
+    const arr = optionsByBatch.get(opt.batch_id) ?? [];
+    arr.push(opt as AbTestOption);
+    optionsByBatch.set(opt.batch_id, arr);
+  }
+
+  return batches.map((b) => ({
+    ...(b as AbTestBatch),
+    options: optionsByBatch.get(b.id) ?? [],
+  }));
+}
+
+export async function fetchAbTestVotes(testId: string): Promise<AbTestVoteWithVoter[]> {
+  const { data: batches } = await supabase
+    .from('ab_test_batches')
+    .select('id')
+    .eq('test_id', testId);
+  if (!batches || batches.length === 0) return [];
+
+  const batchIds = batches.map((b) => b.id);
+  const { data: votes, error } = await supabase
+    .from('ab_test_votes')
+    .select('*')
+    .in('batch_id', batchIds);
+  if (error) throw error;
+  if (!votes || votes.length === 0) return [];
+
+  const voterIds = [...new Set(votes.map((v) => v.voter_id))];
+  const { data: voters } = await supabase
+    .from('profiles')
+    .select('id, email, full_name')
+    .in('id', voterIds);
+
+  const voterMap = new Map<string, { email: string | null; full_name: string | null }>();
+  for (const v of voters ?? []) {
+    voterMap.set(v.id, { email: v.email, full_name: v.full_name });
+  }
+
+  return votes.map((v) => {
+    const info = voterMap.get(v.voter_id);
+    return {
+      ...(v as AbTestVote),
+      voter_email: info?.email ?? null,
+      voter_name: info?.full_name ?? null,
+    };
+  });
+}
+
+export async function fetchMyAbTestVotes(testId: string): Promise<AbTestVote[]> {
+  const { data: batches } = await supabase
+    .from('ab_test_batches')
+    .select('id')
+    .eq('test_id', testId);
+  if (!batches || batches.length === 0) return [];
+
+  const batchIds = batches.map((b) => b.id);
+  const { data: votes, error } = await supabase
+    .from('ab_test_votes')
+    .select('*')
+    .in('batch_id', batchIds);
+  if (error) throw error;
+  return (votes ?? []) as AbTestVote[];
+}
+
+export async function castAbTestVote(
+  batchId: string,
+  optionId: string,
+  comment: string
+): Promise<AbTestVote> {
+  const { data, error } = await supabase
+    .from('ab_test_votes')
+    .upsert(
+      { batch_id: batchId, option_id: optionId, comment: comment.trim() },
+      { onConflict: 'batch_id,voter_id' }
+    )
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as AbTestVote;
+}
+
+export async function deleteAbTest(id: string): Promise<void> {
+  const { error } = await supabase.from('ab_tests').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateAbTest(
+  id: string,
+  fields: { title?: string; description?: string }
+): Promise<AbTest> {
+  const { data, error } = await supabase
+    .from('ab_tests')
+    .update(fields)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AbTest;
+}
+
+export async function addAbTestBatch(
+  testId: string,
+  prompt: string,
+  optionA: { file: File; caption: string },
+  optionB: { file: File; caption: string }
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from('ab_test_batches')
+    .select('sort_order')
+    .eq('test_id', testId)
+    .order('sort_order', { ascending: false })
+    .limit(1);
+
+  const nextOrder = (existing && existing.length > 0 ? (existing[0] as { sort_order: number }).sort_order : -1) + 1;
+
+  const urlA = await uploadAbTestImage(testId, optionA.file);
+  const urlB = await uploadAbTestImage(testId, optionB.file);
+
+  const { data: batchRow, error: batchError } = await supabase
+    .from('ab_test_batches')
+    .insert({
+      test_id: testId,
+      prompt: prompt.trim() || 'Which do you prefer?',
+      sort_order: nextOrder,
+    })
+    .select()
+    .single();
+  if (batchError) throw new Error(batchError.message);
+
+  const { error: optError } = await supabase.from('ab_test_options').insert([
+    { batch_id: batchRow.id, label: 'A', image_url: urlA, caption: optionA.caption.trim() },
+    { batch_id: batchRow.id, label: 'B', image_url: urlB, caption: optionB.caption.trim() },
+  ]);
+  if (optError) throw new Error(optError.message);
+}
+
+export async function deleteAbTestBatch(batchId: string): Promise<void> {
+  const { error } = await supabase.from('ab_test_batches').delete().eq('id', batchId);
+  if (error) throw error;
+}
+
+export async function fetchAbTestVoteCounts(testId: string): Promise<Record<string, number>> {
+  const votes = await fetchAbTestVotes(testId);
+  const counts: Record<string, number> = {};
+  for (const v of votes) {
+    counts[v.option_id] = (counts[v.option_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function buildAbTestShareUrl(token: string): string {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  return `${window.location.origin}${base}/abtest/${token}`;
+}
+

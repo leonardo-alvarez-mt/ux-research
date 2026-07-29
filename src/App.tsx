@@ -14,11 +14,13 @@ import SharedSessionPage from './pages/SharedSessionPage';
 import SurveyBuilderPage from './pages/SurveyBuilderPage';
 import SurveyResponsePage from './pages/SurveyResponsePage';
 import SurveyResultsPage from './pages/SurveyResultsPage';
+import AbTestVotingPage from './pages/AbTestVotingPage';
+import AbTestResultsPage from './pages/AbTestResultsPage';
 import Sidebar, { MobileMenuButton } from './components/Sidebar';
 import { Loader2 } from 'lucide-react';
 
 type AuthView = 'login' | 'signup' | 'forgot-password' | 'reset-password';
-type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results';
+type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results' | 'ab-test-results';
 
 const OAUTH_PENDING_KEY = 'google_sheets_oauth_pending';
 
@@ -41,13 +43,15 @@ function getAppPathname(): string {
   return path;
 }
 
-function getPathTokens(): { shareToken: string | null; surveyToken: string | null } {
+function getPathTokens(): { shareToken: string | null; surveyToken: string | null; abTestToken: string | null } {
   const pathname = getAppPathname();
   const shareMatch = pathname.match(/^\/share\/([a-f0-9-]{36})$/i);
   const surveyMatch = pathname.match(/^\/survey\/([a-f0-9-]{36})$/i);
+  const abTestMatch = pathname.match(/^\/abtest\/([a-f0-9-]{36})$/i);
   return {
     shareToken: shareMatch ? shareMatch[1] : null,
     surveyToken: surveyMatch ? surveyMatch[1] : null,
+    abTestToken: abTestMatch ? abTestMatch[1] : null,
   };
 }
 
@@ -104,10 +108,12 @@ function AppContent() {
   const [appView, setAppView] = useState<AppView>('dashboard');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
+  const [selectedAbTestId, setSelectedAbTestId] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 1024);
   const [shareToken, setShareToken] = useState<string | null>(() => getPathTokens().shareToken);
   const [surveyToken, setSurveyToken] = useState<string | null>(() => getPathTokens().surveyToken);
+  const [abTestToken, setAbTestToken] = useState<string | null>(() => getPathTokens().abTestToken);
   const [refreshKey, setRefreshKey] = useState(0);
   const [oauthPending, setOauthPending] = useState<OAuthPending | null>(null);
 
@@ -136,10 +142,10 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    if (shareToken || surveyToken) {
+    if (shareToken || surveyToken || abTestToken) {
       window.history.replaceState({}, '', import.meta.env.BASE_URL);
     }
-  }, [shareToken, surveyToken]);
+  }, [shareToken, surveyToken, abTestToken]);
 
   useEffect(() => {
     if (!user || loading) return;
@@ -156,6 +162,15 @@ function AppContent() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
       </div>
+    );
+  }
+
+  if (abTestToken) {
+    return (
+      <AbTestVotingPage
+        token={abTestToken}
+        onDone={() => setAbTestToken(null)}
+      />
     );
   }
 
@@ -224,14 +239,26 @@ function AppContent() {
     setRefreshKey((k) => k + 1);
   }
 
+  function handleOpenAbTestResults(testId: string) {
+    setSelectedAbTestId(testId);
+    setAppView('ab-test-results');
+  }
+
+  function handleBackFromAbTest() {
+    setSelectedAbTestId(null);
+    setAppView('dashboard');
+    setRefreshKey((k) => k + 1);
+  }
+
   function handleNavigate(view: 'dashboard' | 'sessions' | 'participants' | 'archive') {
     setAppView(view);
     setSelectedSessionId(null);
     setSelectedSurveyId(null);
+    setSelectedAbTestId(null);
   }
 
   const sidebarView =
-    appView === 'session-detail' || appView === 'survey-builder' || appView === 'survey-results'
+    appView === 'session-detail' || appView === 'survey-builder' || appView === 'survey-results' || appView === 'ab-test-results'
       ? 'dashboard'
       : (appView as 'dashboard' | 'sessions' | 'participants' | 'archive');
 
@@ -243,6 +270,7 @@ function AppContent() {
     'session-detail': 'Session Detail',
     'survey-builder': 'Survey Builder',
     'survey-results': 'Survey Results',
+    'ab-test-results': 'A/B Test Results',
   };
 
   return (
@@ -257,7 +285,7 @@ function AppContent() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 rounded-2xl my-2 mr-2">
-        {appView !== 'survey-builder' && (
+        {appView !== 'survey-builder' && appView !== 'ab-test-results' && (
           <header className="bg-slate-50 px-6 py-4 flex items-center gap-4 shrink-0 border-b border-slate-200/80 rounded-t-2xl">
             <MobileMenuButton onClick={() => setMobileSidebarOpen(true)} />
             <div className="flex-1 min-w-0">
@@ -279,6 +307,7 @@ function AppContent() {
               onViewSession={handleViewSession}
               onViewSurvey={handleOpenSurveyBuilder}
               onViewSurveyResults={handleOpenSurveyResults}
+              onViewAbTestResults={handleOpenAbTestResults}
               refreshKey={refreshKey}
             />
           )}
@@ -312,6 +341,12 @@ function AppContent() {
                 (oauthPending?.surveyId === selectedSurveyId ? oauthPending.claimToken : undefined) ??
                 (readStoredOAuthPending()?.surveyId === selectedSurveyId ? readStoredOAuthPending()?.claimToken ?? undefined : undefined)
               }
+            />
+          )}
+          {appView === 'ab-test-results' && selectedAbTestId && (
+            <AbTestResultsPage
+              testId={selectedAbTestId}
+              onBack={handleBackFromAbTest}
             />
           )}
         </main>
