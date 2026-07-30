@@ -33,7 +33,7 @@ export default function LoginPage({ onSwitchToSignUp, onForgotPassword: _onForgo
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
         queryParams: {
           hd: 'mitratech.com',
           prompt: 'select_account',
