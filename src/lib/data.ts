@@ -233,7 +233,7 @@ export async function fetchParticipants(userId: string): Promise<Participant[]> 
   const { data, error } = await supabase
     .from('participants')
     .select('*')
-    .eq('user_id', userId)
+    .or(`user_id.eq.${userId},participant_scope.eq.internal`)
     .order('name', { ascending: true });
   if (error) throw error;
   return data ?? [];
@@ -246,10 +246,13 @@ export async function fetchParticipantsWithSessionCount(
   let query = supabase
     .from('participants')
     .select('*, session_participants(count)')
-    .eq('user_id', userId)
     .order('name', { ascending: true });
-  if (scope) {
-    query = query.eq('participant_scope', scope);
+  if (scope === 'internal') {
+    query = query.eq('participant_scope', 'internal');
+  } else if (scope === 'external') {
+    query = query.eq('user_id', userId).eq('participant_scope', 'external');
+  } else {
+    query = query.eq('user_id', userId);
   }
   const { data: participants, error } = await query;
   if (error) throw error;
