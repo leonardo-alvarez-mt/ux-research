@@ -365,7 +365,8 @@ export interface Database {
           id: string;
           batch_id: string;
           option_id: string;
-          voter_id: string;
+          voter_id: string | null;
+          voter_ip: string | null;
           comment: string;
           created_at: string;
         };
@@ -373,7 +374,8 @@ export interface Database {
           id?: string;
           batch_id: string;
           option_id: string;
-          voter_id?: string;
+          voter_id?: string | null;
+          voter_ip?: string | null;
           comment?: string;
           created_at?: string;
         };
@@ -622,4 +624,15 @@ export interface AbTestWithDetails extends AbTest {
 export interface AbTestVoteWithVoter extends AbTestVote {
   voter_name: string | null;
   voter_email: string | null;
+}
+
+export interface AbTestVoteSubmission {
+  batch_id: string;
+  option_id: string;
+  comment: string;
+}
+
+export interface AbTestVoteResult {
+  vote: AbTestVote | null;
+  error?: string;
 }

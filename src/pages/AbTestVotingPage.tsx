@@ -1,13 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, MessageSquare, Shield, Maximize2, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { fetchAbTestByShareToken, fetchAbTestBatches, fetchMyAbTestVotes, castAbTestVote } from '../lib/data';
-import type { AbTest, AbTestBatchWithOptions, AbTestVote } from '../lib/types';
+import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, MessageSquare, Maximize2, X } from 'lucide-react';
+import { fetchAbTestByShareToken, fetchAbTestBatches, castAbTestVote } from '../lib/data';
+import type { AbTest, AbTestBatchWithOptions } from '../lib/types';
 
 interface AbTestVotingPageProps {
   token: string;
   onDone?: () => void;
-  onSignInNeeded?: () => void;
 }
 
 interface VoteSelection {
@@ -18,17 +16,6 @@ interface VoteSelection {
 interface LightboxState {
   options: AbTestBatchWithOptions['options'];
   index: number;
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2581c-.8059.54-1.8368.859-3.0477.859-2.344 0-4.3282-1.5836-5.036-3.7105H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71c-.18-.54-.2827-1.1168-.2827-1.71s.1027-1.17.2827-1.71V4.9582H.9574C.3477 6.1732 0 7.5482 0 9s.3477 2.8268.9574 4.0418L3.964 10.71z" fill="#FBBC05"/>
-      <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9574 4.9582L3.964 7.29C4.6718 5.1632 6.656 3.5795 9 3.5795z" fill="#EA4335"/>
-    </svg>
-  );
 }
 
 function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () => void }) {
@@ -55,7 +42,6 @@ function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () 
       style={{ background: 'rgba(15, 15, 25, 0.85)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
-      {/* Close button */}
       <button
         onClick={onClose}
         className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
@@ -64,7 +50,6 @@ function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () 
         <X className="w-5 h-5 text-white" />
       </button>
 
-      {/* Left arrow */}
       <button
         onClick={(e) => { e.stopPropagation(); prev(); }}
         className="absolute left-4 sm:left-8 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
@@ -73,7 +58,6 @@ function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () 
         <ArrowLeft className="w-5 h-5 text-white" />
       </button>
 
-      {/* Image container — stop propagation so clicking the image itself doesn't close */}
       <div
         className="relative flex flex-col items-center mx-20 sm:mx-24 max-w-5xl w-full"
         onClick={(e) => e.stopPropagation()}
@@ -83,7 +67,6 @@ function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () 
           alt={`Option ${current.label}`}
           className="w-full max-h-[78vh] object-contain rounded-xl shadow-2xl"
         />
-        {/* Label + indicator */}
         <div className="mt-4 flex items-center gap-3">
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
             <span className="w-6 h-6 bg-white/20 text-white rounded text-xs font-bold flex items-center justify-center">
@@ -99,7 +82,6 @@ function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () 
         </div>
       </div>
 
-      {/* Right arrow */}
       <button
         onClick={(e) => { e.stopPropagation(); next(); }}
         className="absolute right-4 sm:right-8 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
@@ -111,14 +93,11 @@ function Lightbox({ lightbox, onClose }: { lightbox: LightboxState; onClose: () 
   );
 }
 
-export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTestVotingPageProps) {
+export default function AbTestVotingPage({ token, onDone }: AbTestVotingPageProps) {
   const [test, setTest] = useState<AbTest | null>(null);
   const [batches, setBatches] = useState<AbTestBatchWithOptions[]>([]);
-  const [myVotes, setMyVotes] = useState<Record<string, AbTestVote>>({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [step, setStep] = useState<'welcome' | number | 'done'>('welcome');
   const [selections, setSelections] = useState<Record<string, VoteSelection>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -127,25 +106,12 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
 
   useEffect(() => {
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-      setAuthChecked(true);
-
-      if (!session) {
-        setLoading(false);
-        return;
-      }
-
       try {
         const t = await fetchAbTestByShareToken(token);
         if (!t) { setNotFound(true); return; }
         const b = await fetchAbTestBatches(t.id);
-        const votes = await fetchMyAbTestVotes(t.id);
-        const voteMap: Record<string, AbTestVote> = {};
-        for (const v of votes) voteMap[v.batch_id] = v;
         setTest(t);
         setBatches(b);
-        setMyVotes(voteMap);
       } catch {
         setNotFound(true);
       } finally {
@@ -155,24 +121,7 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
     init();
   }, [token]);
 
-  async function handleSignIn() {
-    const returnUrl = window.location.href;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: returnUrl,
-        queryParams: {
-          hd: 'mitratech.com',
-          prompt: 'select_account',
-        },
-      },
-    });
-    if (error && onSignInNeeded) {
-      onSignInNeeded();
-    }
-  }
-
-  if (loading || !authChecked) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
@@ -194,43 +143,6 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
               Go back
             </button>
           )}
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #2d1b4e 0%, #4c1d95 30%, #6d28d9 70%, #7c3aed 100%)' }}>
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="bg-white rounded-2xl shadow-2xl w-full px-9 py-10">
-            <div className="flex justify-center mb-6">
-              <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center">
-                <Shield className="w-7 h-7 text-violet-600" />
-              </div>
-            </div>
-            <div className="mb-6 text-center">
-              <h1 className="text-xl font-bold text-slate-900 mb-1">Sign in to vote</h1>
-              <p className="text-sm text-slate-500">Use your Mitratech Google account to participate in this A/B Test.</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleSignIn}
-              className="w-full flex items-center justify-center gap-3 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors shadow-sm"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
-            <p className="mt-4 text-center text-xs text-slate-400">
-              Only <span className="font-medium text-slate-500">@mitratech.com</span> accounts can vote
-            </p>
-            {onDone && (
-              <button onClick={onDone} className="mt-6 block mx-auto text-xs text-slate-400 hover:text-slate-600 transition-colors">
-                Cancel
-              </button>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -289,8 +201,9 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
         }
       }
       setStep('done');
-    } catch {
-      setSubmitError('Something went wrong submitting your votes. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong submitting your votes. Please try again.';
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -318,7 +231,7 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
             Start Voting
             <ArrowRight className="w-4 h-4" />
           </button>
-          <p className="text-xs text-slate-400 mt-6">Your vote is tied to your account</p>
+          <p className="text-xs text-slate-400 mt-6">One vote per person</p>
         </div>
       </div>
     );
@@ -347,7 +260,6 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
 
   if (!currentBatch) return null;
   const currentSelection = selections[currentBatch.id];
-  const existingVote = myVotes[currentBatch.id];
 
   return (
     <>
@@ -365,11 +277,6 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
             <span className="text-xs font-semibold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-full">
               Batch {currentIndex + 1} / {batches.length}
             </span>
-            {existingVote && (
-              <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
-                You voted before — voting again will update your choice
-              </span>
-            )}
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900 mb-6 leading-tight">
@@ -395,7 +302,6 @@ export default function AbTestVotingPage({ token, onDone, onSignInNeeded }: AbTe
                     </div>
                   )}
 
-                  {/* Expand button */}
                   <div
                     role="button"
                     tabIndex={0}

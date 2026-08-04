@@ -27,6 +27,8 @@ import type {
   AbTestVoteWithVoter,
 } from './types';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+
 export async function fetchSessions(userId: string, archived = false): Promise<Session[]> {
   const { data, error } = await supabase
     .from('sessions')
@@ -1171,19 +1173,20 @@ export async function fetchAbTestVotes(testId: string): Promise<AbTestVoteWithVo
   if (error) throw error;
   if (!votes || votes.length === 0) return [];
 
-  const voterIds = [...new Set(votes.map((v) => v.voter_id))];
-  const { data: voters } = await supabase
-    .from('profiles')
-    .select('id, email, full_name')
-    .in('id', voterIds);
-
+  const voterIds = [...new Set(votes.map((v) => v.voter_id).filter((id): id is string => id != null))];
   const voterMap = new Map<string, { email: string | null; full_name: string | null }>();
-  for (const v of voters ?? []) {
-    voterMap.set(v.id, { email: v.email, full_name: v.full_name });
+  if (voterIds.length > 0) {
+    const { data: voters } = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', voterIds);
+    for (const v of voters ?? []) {
+      voterMap.set(v.id, { email: v.email, full_name: v.full_name });
+    }
   }
 
   return votes.map((v) => {
-    const info = voterMap.get(v.voter_id);
+    const info = v.voter_id ? voterMap.get(v.voter_id) : undefined;
     return {
       ...(v as AbTestVote),
       voter_email: info?.email ?? null,
@@ -1213,16 +1216,23 @@ export async function castAbTestVote(
   optionId: string,
   comment: string
 ): Promise<AbTestVote> {
-  const { data, error } = await supabase
-    .from('ab_test_votes')
-    .upsert(
-      { batch_id: batchId, option_id: optionId, comment: comment.trim() },
-      { onConflict: 'batch_id,voter_id' }
-    )
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as AbTestVote;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/cast-ab-test-vote`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseAnonKey,
+    },
+    body: JSON.stringify({ batchId, optionId, comment: comment.trim() }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error ?? `Failed to submit vote (${response.status})`);
+  }
+
+  const result = await response.json();
+  return result.vote as AbTestVote;
 }
 
 export async function deleteAbTest(id: string): Promise<void> {
