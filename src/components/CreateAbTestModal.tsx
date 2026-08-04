@@ -349,6 +349,22 @@ interface OptionUploaderProps {
 
 function OptionUploader({ label, caption, preview, onCaptionChange, onFileSelect }: OptionUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [pasteHighlight, setPasteHighlight] = useState(false);
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          onFileSelect(file);
+          return;
+        }
+      }
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -361,10 +377,23 @@ function OptionUploader({ label, caption, preview, onCaptionChange, onFileSelect
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className={`w-full aspect-video rounded-lg border-2 border-dashed transition-all flex items-center justify-center overflow-hidden ${
-          preview
-            ? 'border-violet-300 bg-white'
-            : 'border-slate-300 hover:border-violet-400 bg-white'
+        onPaste={handlePaste}
+        onPasteOver={() => setPasteHighlight(false)}
+        onDragOver={(e) => { e.preventDefault(); setPasteHighlight(true); }}
+        onDragLeave={() => setPasteHighlight(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setPasteHighlight(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file && file.type.startsWith('image/')) onFileSelect(file);
+        }}
+        tabIndex={0}
+        className={`w-full aspect-video rounded-lg border-2 border-dashed transition-all flex items-center justify-center overflow-hidden outline-none ${
+          pasteHighlight
+            ? 'border-violet-500 bg-violet-50'
+            : preview
+              ? 'border-violet-300 bg-white'
+              : 'border-slate-300 hover:border-violet-400 bg-white'
         }`}
       >
         {preview ? (
@@ -372,7 +401,7 @@ function OptionUploader({ label, caption, preview, onCaptionChange, onFileSelect
         ) : (
           <div className="flex flex-col items-center gap-1 py-4">
             <Upload className="w-5 h-5 text-slate-300" />
-            <span className="text-xs text-slate-400">Click to upload</span>
+            <span className="text-xs text-slate-400">Click or paste (Ctrl/Cmd+V)</span>
           </div>
         )}
       </button>
