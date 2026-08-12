@@ -24,7 +24,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
   const [prototypeUrl, setPrototypeUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdSlug, setCreatedSlug] = useState('');
+  const [createdKey, setCreatedKey] = useState('');
   const [createdId, setCreatedId] = useState('');
   const [copiedCmd, setCopiedCmd] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
@@ -38,13 +38,12 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
     }
     setSubmitting(true);
     setError(null);
-    const slug = generateCritKey();
+    const projectKey = generateCritKey();
     try {
       const { data, error: insertError } = await critSupabase
         .from('projects')
         .insert({
-          title: title.trim(),
-          slug,
+          project_id: projectKey,
           walkthrough_url: prototypeUrl.trim() || null,
           is_published: false,
           questions: [],
@@ -53,7 +52,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
         .select()
         .single();
       if (insertError) throw new Error(insertError.message);
-      setCreatedSlug(slug);
+      setCreatedKey(projectKey);
       setCreatedId(data.id);
       setStep('setup');
     } catch (err: unknown) {
@@ -75,8 +74,8 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
     }
   }
 
-  const cliCommand = `npx get-crit ${createdSlug}`;
-  const scriptTag = `<script src="${WIDGET_SCRIPT_BASE}" data-project-key="${createdSlug}" async></script>`;
+  const cliCommand = `npx get-crit ${createdKey}`;
+  const scriptTag = `<script src="${WIDGET_SCRIPT_BASE}" data-project-key="${createdKey}" async></script>`;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -158,7 +157,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
             </div>
 
             <div className="text-xs font-mono text-slate-400 bg-slate-50 rounded-lg px-3 py-1.5 inline-block">
-              {createdSlug}
+              {createdKey}
             </div>
 
             <div>
@@ -234,7 +233,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
 
             <div className="flex items-center gap-3 pt-1">
               <button
-                onClick={() => onCreated(createdId)}
+                onClick={() => onCreated(createdKey)}
                 className="flex-1 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2.5 rounded-lg transition-all text-sm shadow-sm"
               >
                 Done &amp; Go to Dashboard

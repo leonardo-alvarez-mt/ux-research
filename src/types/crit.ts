@@ -12,24 +12,29 @@ export interface CritNextStep {
 
 export interface CritProject {
   id: string;
-  title: string;
-  slug: string;
+  project_id: string;
   walkthrough_url?: string;
   notes?: string;
   questions?: CritQuestion[];
   next_steps?: CritNextStep[];
   is_published: boolean;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface CritFeedback {
   id: string;
   project_id: string;
   type: 'comment' | 'poll' | 'video';
+  comment?: string;
   text_content?: string;
+  selector?: string;
   element_selector?: string;
-  reviewer_name?: string;
-  reviewer_avatar?: string;
   video_url?: string;
+  meta?: Record<string, unknown>;
+  reviewer_name?: string;
+  avatar_url?: string;
+  x_pos?: number;
+  y_pos?: number;
   created_at: string;
 }

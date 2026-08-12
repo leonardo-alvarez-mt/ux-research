@@ -62,7 +62,7 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
           const { count } = await critSupabase
             .from('feedback')
             .select('*', { count: 'exact', head: true })
-            .eq('project_id', p.id);
+            .eq('project_id', p.project_id);
           counts[p.id] = count ?? 0;
         })
       );
@@ -74,8 +74,8 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
     }
   }
 
-  async function handleCopySnippet(projectSlug: string, projectId: string) {
-    await navigator.clipboard.writeText(`npx get-crit ${projectSlug}`);
+  async function handleCopySnippet(projectKey: string, projectId: string) {
+    await navigator.clipboard.writeText(`npx get-crit ${projectKey}`);
     setCopiedId(projectId);
     setTimeout(() => setCopiedId(null), 2000);
     setOpenMenuId(null);
@@ -166,11 +166,11 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
                     <tr
                       key={project.id}
                       className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer"
-                      onClick={() => onOpenDetail(project.id)}
+                      onClick={() => onOpenDetail(project.project_id)}
                     >
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-sm text-slate-900">{project.title || project.slug}</div>
-                        <div className="text-xs text-slate-400 font-mono">{project.slug}</div>
+                        <div className="font-semibold text-sm text-slate-900">{project.project_id}</div>
+                        <div className="text-xs text-slate-400 font-mono">{project.project_id}</div>
                       </td>
                       <td className="px-5 py-3.5">
                         {project.is_published ? (
@@ -215,7 +215,7 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
                                 </a>
                               )}
                               <button
-                                onClick={() => handleCopySnippet(project.slug, project.id)}
+                                onClick={() => handleCopySnippet(project.project_id, project.id)}
                                 className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors w-full text-left"
                               >
                                 {copiedId === project.id ? (
@@ -225,7 +225,7 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
                                 )}
                               </button>
                               <button
-                                onClick={() => { onOpenDetail(project.id); setOpenMenuId(null); }}
+                                onClick={() => { onOpenDetail(project.project_id); setOpenMenuId(null); }}
                                 className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors w-full text-left"
                               >
                                 <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />

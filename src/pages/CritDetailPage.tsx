@@ -38,7 +38,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
     const { data, error } = await critSupabase
       .from('projects')
       .select('*')
-      .eq('id', projectId)
+      .eq('project_id', projectId)
       .maybeSingle();
     if (error) { console.error('Failed to load project:', error); return; }
     setProject(data as unknown as CritProject);
@@ -87,7 +87,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
       await critSupabase
         .from('projects')
         .update({ next_steps: updatedSteps })
-        .eq('id', projectId);
+        .eq('project_id', projectId);
     } catch (err) {
       console.error('Failed to update step:', err);
       setProject((prev) => prev ? { ...prev, next_steps: (prev.next_steps ?? []).map((s) => s.id === step.id ? { ...s, completed: step.completed } : s) } : prev);
@@ -111,7 +111,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
       await critSupabase
         .from('projects')
         .update({ next_steps: updatedSteps })
-        .eq('id', projectId);
+        .eq('project_id', projectId);
     } catch (err) {
       console.error('Failed to add step:', err);
     } finally {
@@ -125,7 +125,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
     const lines = uncompleted.map((s) => `- [ ] ${s.text}`).join('\n');
     const markdown = `### Prototype Review Action Items
 
-The following feedback items were flagged during design review for ${project.title || project.slug}:
+The following feedback items were flagged during design review for ${project.project_id}:
 
 ${lines}
 
@@ -172,8 +172,8 @@ Please update the codebase to resolve these issues.`;
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-slate-900 truncate">{project.title || project.slug}</h1>
-          <p className="text-xs text-slate-400 font-mono">{project.slug}</p>
+          <h1 className="text-base font-bold text-slate-900 truncate">{project.project_id}</h1>
+          <p className="text-xs text-slate-400 font-mono">{project.project_id}</p>
         </div>
         {project.is_published ? (
           <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
@@ -328,8 +328,8 @@ function FeedbackTab({ feedback }: { feedback: CritFeedback[] }) {
       {feedback.map((item) => (
         <div key={item.id} className="p-4 hover:bg-slate-50/50 transition-colors">
           <div className="flex items-start gap-3">
-            {item.reviewer_avatar ? (
-              <img src={item.reviewer_avatar} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+            {item.avatar_url ? (
+              <img src={item.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
             ) : (
               <div className="w-8 h-8 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                 {(item.reviewer_name || '?')[0]?.toUpperCase()}
