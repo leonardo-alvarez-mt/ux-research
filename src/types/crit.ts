@@ -13,6 +13,7 @@ export interface CritNextStep {
 export interface CritProject {
   id: string;
   project_id: string;
+  user_id?: string;
   title?: string;
   project_url?: string;
   walkthrough_url?: string;

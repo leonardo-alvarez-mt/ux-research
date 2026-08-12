@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Layers, Plus, MoreHorizontal, ExternalLink, Copy, LayoutDashboard, Check, Loader2 } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
+import { useAuth } from '../context/AuthContext';
 import type { CritProject, CritFeedback } from '../types/crit';
 import NewCritModal from '../components/NewCritModal';
 
@@ -23,6 +24,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<CritProject[]>([]);
   const [feedbackCounts, setFeedbackCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -32,8 +34,14 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadProjects();
-  }, [refreshKey]);
+    if (user?.id) {
+      loadProjects(user.id);
+    } else {
+      setProjects([]);
+      setFeedbackCounts({});
+      setLoading(false);
+    }
+  }, [refreshKey, user?.id]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -45,12 +53,13 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  async function loadProjects() {
+  async function loadProjects(userId: string) {
     setLoading(true);
     try {
       const { data, error } = await critSupabase
         .from('projects')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       const projectList = (data ?? []) as unknown as CritProject[];

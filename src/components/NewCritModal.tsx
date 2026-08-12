@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Copy, Check, Terminal, ExternalLink, Loader2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
+import { useAuth } from '../context/AuthContext';
 
 interface NewCritModalProps {
   onClose: () => void;
@@ -28,6 +29,7 @@ function generateCritKey(title: string): string {
 const WIDGET_SCRIPT_BASE = 'https://twetzrmkrfwkrokaeiya.supabase.co/storage/v1/object/public/assets/widget.js';
 
 export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) {
+  const { user } = useAuth();
   const [step, setStep] = useState<'input' | 'setup'>('input');
   const [title, setTitle] = useState('');
   const [prototypeUrl, setPrototypeUrl] = useState('');
@@ -56,6 +58,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
           title: title.trim(),
           project_url: prototypeUrl.trim() || null,
           walkthrough_url: null,
+          user_id: user?.id ?? null,
           is_published: false,
           questions: [],
           next_steps: [],
