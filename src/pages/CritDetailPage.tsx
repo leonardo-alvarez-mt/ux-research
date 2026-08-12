@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   ArrowLeft, Loader2, Play, MessageSquare, CheckSquare, Check, Plus, Copy,
-  Video, FileText, StickyNote, AlertCircle, ExternalLink, Code2,
+  Video, FileText, StickyNote, AlertCircle, ExternalLink, Code2, Trash2,
 } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
 import type { CritProject, CritFeedback, CritNextStep } from '../types/crit';
@@ -33,6 +33,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
   const [newTaskText, setNewTaskText] = useState('');
   const [addingTask, setAddingTask] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     const { data, error } = await critSupabase
@@ -93,6 +94,24 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
       setProject((prev) => prev ? { ...prev, next_steps: (prev.next_steps ?? []).map((s) => s.id === step.id ? { ...s, completed: step.completed } : s) } : prev);
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  async function deleteNextStep(stepId: string) {
+    if (!project) return;
+    setDeletingStepId(stepId);
+    const updatedSteps = (project.next_steps ?? []).filter((s) => s.id !== stepId);
+    setProject((prev) => prev ? { ...prev, next_steps: updatedSteps } : prev);
+    try {
+      await critSupabase
+        .from('projects')
+        .update({ next_steps: updatedSteps })
+        .eq('project_id', projectId);
+    } catch (err) {
+      console.error('Failed to delete step:', err);
+      loadProject();
+    } finally {
+      setDeletingStepId(null);
     }
   }
 
@@ -295,6 +314,8 @@ Please update the codebase to resolve these issues.`;
                 project={project}
                 togglingId={togglingId}
                 onToggle={toggleNextStep}
+                onDelete={deleteNextStep}
+                deletingStepId={deletingStepId}
                 newTaskText={newTaskText}
                 setNewTaskText={setNewTaskText}
                 onAdd={addNextStep}
@@ -364,11 +385,13 @@ function FeedbackTab({ feedback }: { feedback: CritFeedback[] }) {
 }
 
 function NextStepsTab({
-  project, togglingId, onToggle, newTaskText, setNewTaskText, onAdd, addingTask, onCopyForAgent, openCount,
+  project, togglingId, onToggle, onDelete, deletingStepId, newTaskText, setNewTaskText, onAdd, addingTask, onCopyForAgent, openCount,
 }: {
   project: CritProject;
   togglingId: string | null;
   onToggle: (step: CritNextStep) => void;
+  onDelete: (stepId: string) => void;
+  deletingStepId: string | null;
   newTaskText: string;
   setNewTaskText: (v: string) => void;
   onAdd: () => void;
@@ -387,9 +410,9 @@ function NextStepsTab({
       )}
 
       {steps.map((step) => (
-        <label
+        <div
           key={step.id}
-          className="flex items-start gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer"
+          className="group flex items-start gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors"
         >
           <button
             onClick={() => onToggle(step)}
@@ -406,10 +429,21 @@ function NextStepsTab({
               <Check className="w-3.5 h-3.5 text-white" />
             ) : null}
           </button>
-          <span className={`text-sm leading-relaxed ${step.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+          <span className={`text-sm leading-relaxed flex-1 ${step.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
             {step.text}
           </span>
-        </label>
+          <button
+            onClick={() => onDelete(step.id)}
+            disabled={deletingStepId === step.id}
+            className="opacity-0 group-hover:opacity-100 mt-0.5 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+          >
+            {deletingStepId === step.id ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </div>
       ))}
 
       <div className="flex items-center gap-2 pt-1">

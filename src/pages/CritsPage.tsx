@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Layers, Plus, MoreHorizontal, ExternalLink, Copy, LayoutDashboard, Check, Loader2 } from 'lucide-react';
+import { Layers, Plus, MoreHorizontal, ExternalLink, Copy, LayoutDashboard, Check, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
 import { useAuth } from '../context/AuthContext';
 import type { CritProject, CritFeedback } from '../types/crit';
@@ -31,6 +31,8 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
   const [showModal, setShowModal] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CritProject | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,6 +90,21 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
     setCopiedId(projectId);
     setTimeout(() => setCopiedId(null), 2000);
     setOpenMenuId(null);
+  }
+
+  async function handleDeleteProject() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await critSupabase.from('feedback').delete().eq('project_id', deleteTarget.project_id);
+      await critSupabase.from('projects').delete().eq('id', deleteTarget.id);
+      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const activeCritis = projects.filter((p) => p.is_published).length;
@@ -240,6 +257,14 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
                                 <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
                                 View Dashboard
                               </button>
+                              <div className="my-1 border-t border-slate-100" />
+                              <button
+                                onClick={() => { setDeleteTarget(project); setOpenMenuId(null); }}
+                                className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete Crit
+                              </button>
                             </div>
                           )}
                         </div>
@@ -261,6 +286,42 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
             onOpenDetail(projectId);
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Crit</h3>
+                <p className="text-xs text-slate-500">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+              Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteTarget.title || deleteTarget.project_id}</span>? All associated feedback will be permanently removed.
+            </p>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-colors"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
