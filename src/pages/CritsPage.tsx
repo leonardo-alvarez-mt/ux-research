@@ -169,7 +169,7 @@ export default function CritsPage({ onOpenDetail, refreshKey }: CritsPageProps) 
                       onClick={() => onOpenDetail(project.project_id)}
                     >
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-sm text-slate-900">{project.project_id}</div>
+                        <div className="font-semibold text-sm text-slate-900">{project.title || project.project_id}</div>
                         <div className="text-xs text-slate-400 font-mono">{project.project_id}</div>
                       </td>
                       <td className="px-5 py-3.5">

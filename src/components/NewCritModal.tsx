@@ -7,13 +7,22 @@ interface NewCritModalProps {
   onCreated: (projectId: string) => void;
 }
 
-function generateCritKey(): string {
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function generateCritKey(title: string): string {
+  const slug = slugify(title).slice(0, 35);
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let key = '';
-  for (let i = 0; i < 8; i++) {
-    key += chars[Math.floor(Math.random() * chars.length)];
+  let suffix = '';
+  for (let i = 0; i < 6; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
   }
-  return `crit_pk_${key}`;
+  return `${slug}-${suffix}`;
 }
 
 const WIDGET_SCRIPT_BASE = 'https://twetzrmkrfwkrokaeiya.supabase.co/storage/v1/object/public/assets/widget.js';
@@ -38,13 +47,15 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
     }
     setSubmitting(true);
     setError(null);
-    const projectKey = generateCritKey();
+    const projectKey = generateCritKey(title.trim());
     try {
       const { data, error: insertError } = await critSupabase
         .from('projects')
         .insert({
           project_id: projectKey,
-          walkthrough_url: prototypeUrl.trim() || null,
+          title: title.trim(),
+          project_url: prototypeUrl.trim() || null,
+          walkthrough_url: null,
           is_published: false,
           questions: [],
           next_steps: [],

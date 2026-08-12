@@ -125,7 +125,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
     const lines = uncompleted.map((s) => `- [ ] ${s.text}`).join('\n');
     const markdown = `### Prototype Review Action Items
 
-The following feedback items were flagged during design review for ${project.project_id}:
+The following feedback items were flagged during design review for ${project.title || project.project_id}:
 
 ${lines}
 
@@ -172,7 +172,7 @@ Please update the codebase to resolve these issues.`;
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-slate-900 truncate">{project.project_id}</h1>
+          <h1 className="text-base font-bold text-slate-900 truncate">{project.title || project.project_id}</h1>
           <p className="text-xs text-slate-400 font-mono">{project.project_id}</p>
         </div>
         {project.is_published ? (
