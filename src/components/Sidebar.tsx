@@ -1,7 +1,7 @@
-import { LayoutDashboard, ListChecks, Archive, LogOut, Shield, X, Menu, Users, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Archive, LogOut, Shield, X, Menu, Users, PanelLeftClose, PanelLeftOpen, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-type View = 'dashboard' | 'sessions' | 'participants' | 'archive';
+type View = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'crits';
 
 interface SidebarProps {
   currentView: View;
@@ -16,6 +16,7 @@ const navItems: { id: View; label: string; icon: React.FC<{ className?: string }
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'sessions', label: 'My Sessions', icon: ListChecks },
   { id: 'participants', label: 'Participants', icon: Users },
+  { id: 'crits', label: 'Design Crits', icon: Layers },
   { id: 'archive', label: 'Archive', icon: Archive },
 ];
 

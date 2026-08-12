@@ -16,11 +16,13 @@ import SurveyResponsePage from './pages/SurveyResponsePage';
 import SurveyResultsPage from './pages/SurveyResultsPage';
 import AbTestVotingPage from './pages/AbTestVotingPage';
 import AbTestResultsPage from './pages/AbTestResultsPage';
+import CritsPage from './pages/CritsPage';
+import CritDetailPage from './pages/CritDetailPage';
 import Sidebar, { MobileMenuButton } from './components/Sidebar';
 import { Loader2 } from 'lucide-react';
 
 type AuthView = 'login' | 'signup' | 'forgot-password' | 'reset-password';
-type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results' | 'ab-test-results';
+type AppView = 'dashboard' | 'sessions' | 'participants' | 'archive' | 'session-detail' | 'survey-builder' | 'survey-results' | 'ab-test-results' | 'crits' | 'crit-detail';
 
 const OAUTH_PENDING_KEY = 'google_sheets_oauth_pending';
 
@@ -109,6 +111,7 @@ function AppContent() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [selectedAbTestId, setSelectedAbTestId] = useState<string | null>(null);
+  const [selectedCritProjectId, setSelectedCritProjectId] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 1024);
   const [shareToken, setShareToken] = useState<string | null>(() => getPathTokens().shareToken);
@@ -250,27 +253,41 @@ function AppContent() {
     setRefreshKey((k) => k + 1);
   }
 
-  function handleNavigate(view: 'dashboard' | 'sessions' | 'participants' | 'archive') {
+  function handleNavigate(view: 'dashboard' | 'sessions' | 'participants' | 'archive' | 'crits') {
     setAppView(view);
     setSelectedSessionId(null);
     setSelectedSurveyId(null);
     setSelectedAbTestId(null);
+    setSelectedCritProjectId(null);
+  }
+
+  function handleOpenCritDetail(projectId: string) {
+    setSelectedCritProjectId(projectId);
+    setAppView('crit-detail');
+  }
+
+  function handleBackFromCrit() {
+    setSelectedCritProjectId(null);
+    setAppView('crits');
+    setRefreshKey((k) => k + 1);
   }
 
   const sidebarView =
-    appView === 'session-detail' || appView === 'survey-builder' || appView === 'survey-results' || appView === 'ab-test-results'
-      ? 'dashboard'
-      : (appView as 'dashboard' | 'sessions' | 'participants' | 'archive');
+    appView === 'session-detail' || appView === 'survey-builder' || appView === 'survey-results' || appView === 'ab-test-results' || appView === 'crit-detail'
+      ? appView === 'crit-detail' ? 'crits' : 'dashboard'
+      : (appView as 'dashboard' | 'sessions' | 'participants' | 'archive' | 'crits');
 
   const pageTitle: Record<AppView, string> = {
     dashboard: 'Dashboard',
     sessions: 'My Sessions',
     participants: 'Participants',
     archive: 'Archive',
+    crits: 'Design Crits',
     'session-detail': 'Session Detail',
     'survey-builder': 'Survey Builder',
     'survey-results': 'Survey Results',
     'ab-test-results': 'A/B Test Results',
+    'crit-detail': 'Crit Dashboard',
   };
 
   return (
@@ -285,7 +302,7 @@ function AppContent() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 rounded-2xl my-2 mr-2">
-        {appView !== 'survey-builder' && appView !== 'ab-test-results' && (
+        {appView !== 'survey-builder' && appView !== 'ab-test-results' && appView !== 'crit-detail' && (
           <header className="bg-slate-50 px-6 py-4 flex items-center gap-4 shrink-0 border-b border-slate-200/80 rounded-t-2xl">
             <MobileMenuButton onClick={() => setMobileSidebarOpen(true)} />
             <div className="flex-1 min-w-0">
@@ -313,6 +330,12 @@ function AppContent() {
           )}
           {appView === 'sessions' && (
             <MySessionsPage onViewSession={handleViewSession} refreshKey={refreshKey} />
+          )}
+          {appView === 'crits' && (
+            <CritsPage onOpenDetail={handleOpenCritDetail} refreshKey={refreshKey} />
+          )}
+          {appView === 'crit-detail' && selectedCritProjectId && (
+            <CritDetailPage projectId={selectedCritProjectId} onBack={handleBackFromCrit} />
           )}
           {appView === 'archive' && (
             <ArchivePage onViewSession={handleViewSession} />
