@@ -10,6 +10,13 @@ export interface CritNextStep {
   completed: boolean;
 }
 
+export interface CritEpic {
+  id: string;
+  name: string;
+  slug: string;
+  target_url?: string;
+}
+
 export interface CritProject {
   id: string;
   project_id: string;
@@ -21,6 +28,7 @@ export interface CritProject {
   questions?: CritQuestion[];
   next_steps?: CritNextStep[];
   creator_password?: string;
+  epics?: CritEpic[];
   is_published: boolean;
   created_at: string;
   updated_at?: string;
@@ -40,5 +48,6 @@ export interface CritFeedback {
   avatar_url?: string;
   x_pos?: number;
   y_pos?: number;
+  epic_id?: string;
   created_at: string;
 }

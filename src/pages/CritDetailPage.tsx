@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ArrowLeft, Loader2, Play, MessageSquare, CheckSquare, Check, Plus, Copy,
   Video, FileText, StickyNote, AlertCircle, ExternalLink, Code2, Trash2, KeyRound,
+  Layers, Link2,
 } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
-import type { CritProject, CritFeedback, CritNextStep } from '../types/crit';
+import type { CritProject, CritFeedback, CritNextStep, CritEpic } from '../types/crit';
 
 interface CritDetailPageProps {
   projectId: string;
@@ -35,6 +36,8 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
   const [copiedPasscode, setCopiedPasscode] = useState(false);
+  const [activeEpicId, setActiveEpicId] = useState<string>('all');
+  const [copiedEpicId, setCopiedEpicId] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     const { data, error } = await critSupabase
@@ -160,6 +163,26 @@ Please update the codebase to resolve these issues.`;
     setCopiedPasscode(true);
     setTimeout(() => setCopiedPasscode(false), 2000);
     showToast('Passcode copied!');
+  }
+
+  const epics = useMemo<CritEpic[]>(() => project?.epics ?? [], [project]);
+
+  const filteredFeedback = useMemo(() => {
+    if (activeEpicId === 'all') return feedback;
+    return feedback.filter((f) => f.epic_id === activeEpicId);
+  }, [feedback, activeEpicId]);
+
+  function copyEpicShareLink(epic: CritEpic) {
+    if (!epic.target_url) {
+      showToast('No prototype URL set for this epic');
+      return;
+    }
+    const separator = epic.target_url.includes('?') ? '&' : '?';
+    const link = `${epic.target_url}${separator}crit_epic=${epic.slug}`;
+    navigator.clipboard.writeText(link);
+    setCopiedEpicId(epic.id);
+    setTimeout(() => setCopiedEpicId(null), 2000);
+    showToast('Epic share link copied!');
   }
 
   if (loading) {
@@ -289,7 +312,7 @@ Please update the codebase to resolve these issues.`;
               </div>
               <div className="p-4 space-y-3">
                 {project.questions.map((q, i) => {
-                  const totalVotes = feedback.filter((f) => f.type === 'poll').length;
+                  const totalVotes = filteredFeedback.filter((f) => f.type === 'poll').length;
                   const votePct = totalVotes > 0 ? Math.round(((q.poll_votes ?? 0) / totalVotes) * 100) : 0;
                   return (
                     <div key={q.id || i}>
@@ -312,6 +335,72 @@ Please update the codebase to resolve these issues.`;
 
         {/* Right Panel - 60% */}
         <div className="lg:w-[60%] bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col">
+          {/* Epic Tab Switcher */}
+          {activeTab === 'feedback' && epics.length > 0 && (
+            <div className="flex items-center gap-1 px-3 pt-3 border-b border-slate-100 overflow-x-auto">
+              <button
+                onClick={() => setActiveEpicId('all')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+                  activeEpicId === 'all'
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                All Feedback
+                {feedback.length > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                    activeEpicId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>{feedback.length}</span>
+                )}
+              </button>
+              {epics.map((epic) => {
+                const epicCount = feedback.filter((f) => f.epic_id === epic.id).length;
+                const isActive = activeEpicId === epic.id;
+                const isCopied = copiedEpicId === epic.id;
+                return (
+                  <div
+                    key={epic.id}
+                    className={`flex items-center gap-1 rounded-lg transition-all whitespace-nowrap ${
+                      isActive ? 'bg-violet-50' : ''
+                    }`}
+                  >
+                    <button
+                      onClick={() => setActiveEpicId(epic.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+                        isActive
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {epic.name}
+                      {epicCount > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>{epicCount}</span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => copyEpicShareLink(epic)}
+                      title="Copy Epic Share Link"
+                      className={`p-1.5 rounded-md transition-all shrink-0 ${
+                        isActive
+                          ? 'text-violet-200 hover:text-white hover:bg-white/10'
+                          : 'text-slate-400 hover:text-violet-600 hover:bg-violet-50'
+                      }`}
+                    >
+                      {isCopied ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Link2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="flex border-b border-slate-200">
             <button
               onClick={() => setActiveTab('feedback')}
@@ -321,8 +410,8 @@ Please update the codebase to resolve these issues.`;
             >
               <MessageSquare className="w-4 h-4" />
               Feedback
-              {feedback.length > 0 && (
-                <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-semibold">{feedback.length}</span>
+              {filteredFeedback.length > 0 && (
+                <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-semibold">{filteredFeedback.length}</span>
               )}
             </button>
             <button
@@ -341,7 +430,7 @@ Please update the codebase to resolve these issues.`;
 
           <div className="flex-1 overflow-y-auto">
             {activeTab === 'feedback' && (
-              <FeedbackTab feedback={feedback} />
+              <FeedbackTab feedback={filteredFeedback} activeEpicId={activeEpicId} epics={epics} />
             )}
             {activeTab === 'next-steps' && (
               <NextStepsTab
@@ -365,55 +454,74 @@ Please update the codebase to resolve these issues.`;
   );
 }
 
-function FeedbackTab({ feedback }: { feedback: CritFeedback[] }) {
+function FeedbackTab({ feedback, activeEpicId, epics }: {
+  feedback: CritFeedback[];
+  activeEpicId: string;
+  epics: CritEpic[];
+}) {
+  const activeEpic = activeEpicId !== 'all' ? epics.find((e) => e.id === activeEpicId) : undefined;
+
   if (feedback.length === 0) {
     return (
       <div className="text-center py-16 px-6">
         <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <MessageSquare className="w-7 h-7 text-slate-400" />
         </div>
-        <h3 className="text-base font-semibold text-slate-900 mb-1">No feedback recorded yet</h3>
-        <p className="text-sm text-slate-500">Share your prototype link to collect responses.</p>
+        <h3 className="text-base font-semibold text-slate-900 mb-1">
+          {activeEpic ? `No feedback for ${activeEpic.name}` : 'No feedback recorded yet'}
+        </h3>
+        <p className="text-sm text-slate-500">
+          {activeEpic ? 'Share the epic link to collect responses for this area.' : 'Share your prototype link to collect responses.'}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="divide-y divide-slate-50">
-      {feedback.map((item) => (
-        <div key={item.id} className="p-4 hover:bg-slate-50/50 transition-colors">
-          <div className="flex items-start gap-3">
-            {item.avatar_url ? (
-              <img src={item.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-            ) : (
-              <div className="w-8 h-8 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                {(item.reviewer_name || '?')[0]?.toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-semibold text-slate-900">{item.reviewer_name || 'Anonymous'}</span>
-                <span className="text-xs text-slate-400">{timeAgo(item.created_at)}</span>
-              </div>
-              {item.element_selector && (
-                <div className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md mb-2">
-                  <Code2 className="w-3 h-3" />
-                  {item.element_selector}
-                </div>
-              )}
-              {item.type === 'video' && item.video_url ? (
-                <div className="mt-2 rounded-lg overflow-hidden bg-slate-900 max-w-sm">
-                  <video src={item.video_url} controls className="w-full" />
-                </div>
+      {feedback.map((item) => {
+        const itemEpic = item.epic_id ? epics.find((e) => e.id === item.epic_id) : undefined;
+        return (
+          <div key={item.id} className="p-4 hover:bg-slate-50/50 transition-colors">
+            <div className="flex items-start gap-3">
+              {item.avatar_url ? (
+                <img src={item.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
               ) : (
-                item.text_content && (
-                  <p className="text-sm text-slate-600 leading-relaxed">{item.text_content}</p>
-                )
+                <div className="w-8 h-8 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                  {(item.reviewer_name || '?')[0]?.toUpperCase()}
+                </div>
               )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-semibold text-slate-900">{item.reviewer_name || 'Anonymous'}</span>
+                  {itemEpic && activeEpicId === 'all' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-md">
+                      <Layers className="w-2.5 h-2.5" />
+                      {itemEpic.name}
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-400">{timeAgo(item.created_at)}</span>
+                </div>
+                {item.element_selector && (
+                  <div className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md mb-2">
+                    <Code2 className="w-3 h-3" />
+                    {item.element_selector}
+                  </div>
+                )}
+                {item.type === 'video' && item.video_url ? (
+                  <div className="mt-2 rounded-lg overflow-hidden bg-slate-900 max-w-sm">
+                    <video src={item.video_url} controls className="w-full" />
+                  </div>
+                ) : (
+                  item.text_content && (
+                    <p className="text-sm text-slate-600 leading-relaxed">{item.text_content}</p>
+                  )
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
