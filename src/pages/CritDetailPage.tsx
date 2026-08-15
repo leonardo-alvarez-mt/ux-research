@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   ArrowLeft, Loader2, Play, MessageSquare, CheckSquare, Check, Plus, Copy,
-  Video, FileText, StickyNote, AlertCircle, ExternalLink, Code2, Trash2,
+  Video, FileText, StickyNote, AlertCircle, ExternalLink, Code2, Trash2, KeyRound,
 } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
 import type { CritProject, CritFeedback, CritNextStep } from '../types/crit';
@@ -34,6 +34,7 @@ export default function CritDetailPage({ projectId, onBack }: CritDetailPageProp
   const [addingTask, setAddingTask] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
+  const [copiedPasscode, setCopiedPasscode] = useState(false);
 
   const loadProject = useCallback(async () => {
     const { data, error } = await critSupabase
@@ -153,6 +154,14 @@ Please update the codebase to resolve these issues.`;
     showToast('Copied prompt for AI agent!');
   }
 
+  function copyPasscode() {
+    if (!project?.creator_password) return;
+    navigator.clipboard.writeText(project.creator_password);
+    setCopiedPasscode(true);
+    setTimeout(() => setCopiedPasscode(false), 2000);
+    showToast('Passcode copied!');
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white">
@@ -232,6 +241,31 @@ Please update the codebase to resolve these issues.`;
               </div>
             )}
           </div>
+
+          {/* Creator Passcode */}
+          {project.creator_password && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-violet-100 rounded-lg flex items-center justify-center shrink-0">
+                  <KeyRound className="w-4.5 h-4.5 text-violet-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Creator Passcode</p>
+                  <p className="text-sm font-mono font-semibold text-slate-900 mt-0.5 truncate">{project.creator_password}</p>
+                </div>
+                <button
+                  onClick={copyPasscode}
+                  className="flex items-center gap-1.5 text-xs font-medium text-violet-700 hover:text-violet-900 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-lg transition-all shrink-0"
+                >
+                  {copiedPasscode ? (
+                    <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copied</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Copy Passcode</>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Creator Notes */}
           {project.notes && (

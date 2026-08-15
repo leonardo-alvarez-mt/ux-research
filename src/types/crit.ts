@@ -20,6 +20,7 @@ export interface CritProject {
   notes?: string;
   questions?: CritQuestion[];
   next_steps?: CritNextStep[];
+  creator_password?: string;
   is_published: boolean;
   created_at: string;
   updated_at?: string;

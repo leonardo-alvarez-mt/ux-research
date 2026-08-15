@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Copy, Check, Terminal, ExternalLink, Loader2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { X, Copy, Check, Terminal, ExternalLink, Loader2, ChevronDown, ChevronUp, Sparkles, KeyRound } from 'lucide-react';
 import { critSupabase } from '../lib/critSupabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +26,15 @@ function generateCritKey(title: string): string {
   return `${slug}-${suffix}`;
 }
 
+function generateRandomPasscode(): string {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 const WIDGET_SCRIPT_BASE = 'https://twetzrmkrfwkrokaeiya.supabase.co/storage/v1/object/public/assets/widget.js';
 
 export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) {
@@ -33,12 +42,15 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
   const [step, setStep] = useState<'input' | 'setup'>('input');
   const [title, setTitle] = useState('');
   const [prototypeUrl, setPrototypeUrl] = useState('');
+  const [passcode, setPasscode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState('');
   const [createdId, setCreatedId] = useState('');
+  const [createdPasscode, setCreatedPasscode] = useState('');
   const [copiedCmd, setCopiedCmd] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedPasscode, setCopiedPasscode] = useState(false);
   const [showScriptFallback, setShowScriptFallback] = useState(false);
 
   async function handleGenerate(e: React.FormEvent) {
@@ -50,6 +62,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
     setSubmitting(true);
     setError(null);
     const projectKey = generateCritKey(title.trim());
+    const finalPasscode = passcode.trim() || generateRandomPasscode();
     try {
       const { data, error: insertError } = await critSupabase
         .from('projects')
@@ -59,6 +72,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
           project_url: prototypeUrl.trim() || null,
           walkthrough_url: null,
           user_id: user?.id ?? null,
+          creator_password: finalPasscode,
           is_published: false,
           questions: [],
           next_steps: [],
@@ -68,6 +82,7 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
       if (insertError) throw new Error(insertError.message);
       setCreatedKey(projectKey);
       setCreatedId(data.id);
+      setCreatedPasscode(finalPasscode);
       setStep('setup');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create project.';
@@ -77,14 +92,17 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
     }
   }
 
-  async function copyText(text: string, which: 'cmd' | 'script') {
+  async function copyText(text: string, which: 'cmd' | 'script' | 'passcode') {
     await navigator.clipboard.writeText(text);
     if (which === 'cmd') {
       setCopiedCmd(true);
       setTimeout(() => setCopiedCmd(false), 2000);
-    } else {
+    } else if (which === 'script') {
       setCopiedScript(true);
       setTimeout(() => setCopiedScript(false), 2000);
+    } else {
+      setCopiedPasscode(true);
+      setTimeout(() => setCopiedPasscode(false), 2000);
     }
   }
 
@@ -138,6 +156,19 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1.5">
+                Creator Passcode <span className="text-slate-400 font-normal normal-case">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                placeholder="e.g. 123456 or crit2026"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+              <p className="text-xs text-slate-400 mt-1.5">Leave blank to auto-generate a random 6-character passcode.</p>
+            </div>
             {error && (
               <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
@@ -172,6 +203,26 @@ export default function NewCritModal({ onClose, onCreated }: NewCritModalProps) 
 
             <div className="text-xs font-mono text-slate-400 bg-slate-50 rounded-lg px-3 py-1.5 inline-block">
               {createdKey}
+            </div>
+
+            <div className="flex items-center gap-3 bg-violet-50 border border-violet-100 rounded-xl p-4">
+              <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5 text-violet-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">Creator Passcode</p>
+                <p className="text-sm font-mono font-semibold text-violet-900 mt-0.5 truncate">{createdPasscode}</p>
+              </div>
+              <button
+                onClick={() => copyText(createdPasscode, 'passcode')}
+                className="flex items-center gap-1.5 text-xs font-medium text-violet-700 hover:text-violet-900 bg-white hover:bg-violet-50 border border-violet-200 px-3 py-1.5 rounded-lg transition-all shrink-0"
+              >
+                {copiedPasscode ? (
+                  <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copied</>
+                ) : (
+                  <><Copy className="w-3.5 h-3.5" /> Copy</>
+                )}
+              </button>
             </div>
 
             <div>
