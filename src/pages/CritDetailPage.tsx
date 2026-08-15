@@ -513,8 +513,8 @@ function FeedbackTab({ feedback, activeEpicId, epics }: {
                     <video src={item.video_url} controls className="w-full" />
                   </div>
                 ) : (
-                  item.text_content && (
-                    <p className="text-sm text-slate-600 leading-relaxed">{item.text_content}</p>
+                  (item.text_content || item.comment) && (
+                    <p className="text-sm text-slate-600 leading-relaxed">{item.text_content || item.comment}</p>
                   )
                 )}
               </div>
